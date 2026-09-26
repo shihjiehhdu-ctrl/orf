@@ -196,6 +196,22 @@ footer{font-size:12.5px;color:var(--muted);line-height:1.6}
 .savemsg{font-size:14px;padding:10px 14px;border-radius:9px;background:var(--sc-bg);color:var(--sc)}
 .savemsg.err{background:var(--omit-bg);color:var(--omit)}
 #rosterTbl td.none{color:var(--muted)}
+.teacherpanel{display:none}
+body.reviewmode .teacherpanel{display:block}
+body.reviewmode .proto, body.reviewmode #steps, body.reviewmode #studentBar, body.reviewmode #saveMsg, body.reviewmode s3 .actions,
+body.reviewmode #againBtn, body.reviewmode #newSimBtn, body.reviewmode #otherBtn, body.reviewmode .ruleCtl{display:none!important}
+body.reviewmode .rulesFixed{display:block}
+.filter{margin-top:14px;width:100%;max-width:360px;border:1px solid var(--line);background:var(--ground);border-radius:9px;padding:8px 12px;font:inherit}
+.rvrow{cursor:pointer} .rvrow:hover td, .rvrow:focus td{background:var(--accent-soft)}
+.tpgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px}
+.tpgrid label{display:flex;flex-direction:column;gap:5px;font-size:13.5px;font-weight:500}
+.tpgrid .wide{grid-column:1/-1}
+.tpgrid .ai{font-weight:400;color:var(--muted);font-size:12.5px}
+.tpgrid input,.tpgrid select,.tpgrid textarea{border:1px solid var(--line);background:var(--ground);border-radius:8px;padding:7px 10px;font:inherit;color:inherit}
+#marked [data-t]{cursor:pointer}
+#marked [data-t]:hover{background:var(--accent-soft)}
+#miscues tr[data-t]{cursor:pointer}
+
 body.stmode #backBtn, body.stmode #otherBtn{display:none}
 body.src-whisper .simonly{display:none}
 .retellcard{margin-top:14px;padding:18px 20px;border-radius:10px;background:var(--accent-soft);display:flex;flex-direction:column;gap:8px}
@@ -360,6 +376,23 @@ body.stmode .ruleCtl{display:none}
       <h2 id="p3title"></h2>
       <span class="muted" id="p3meta"></span>
     </div>
+    <div class="panel teacherpanel" id="teacherPanel">
+      <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px">
+        <h2>老師複核</h2><span class="note" id="tpInfo"></span>
+        <button class="linkbtn" id="tpBack" type="button" style="margin-left:auto">← 回到測驗列表</button>
+      </div>
+      <div id="rvAudioSlot" style="margin-top:12px"></div>
+      <p class="note" id="tpAudioNote"></p>
+      <div class="tpgrid">
+        <label>WCPM<span class="ai">AI：<b id="tpAiWcpm"></b></span><input id="tpWcpm" type="number" min="0" max="400" inputmode="numeric" placeholder="老師計算"></label>
+        <label>Prosody（NAEP 1–4）<span class="ai">AI：<b id="tpAiPros"></b></span>
+          <select id="tpPros"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+        <label>理解（重述 1–4）<span class="ai">AI：<b id="tpAiRetell"></b></span>
+          <select id="tpRetell"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+        <label class="wide">備註<textarea id="tpNote" rows="2" placeholder="例如：AI 漏抓的錯誤、語調判讀是否正確"></textarea></label>
+      </div>
+      <div class="actions" style="margin-top:10px;align-items:center"><button class="btn primary" id="tpSave" type="button">儲存老師評分</button><span class="note" id="tpMsg" role="status"></span></div>
+    </div>
     <div class="stats" id="stats"></div>
 
     <div class="cols">
@@ -394,7 +427,7 @@ body.stmode .ruleCtl{display:none}
           <h2>實際朗讀轉寫</h2>
           <p class="reading" id="transcript" style="font-size:17px;line-height:1.7;margin-top:10px"></p>
           <p class="note" id="diag" style="margin-top:10px" hidden></p>
-          <div id="audioBox" style="margin-top:12px" hidden><p class="note" style="margin-bottom:6px">你的錄音</p><audio id="audio" controls></audio></div>
+          <div id="audioBox" style="margin-top:12px" hidden><p class="note" style="margin-bottom:6px">朗讀錄音</p><audio id="audio" controls></audio></div>
         </div>
       </div>
 
@@ -465,6 +498,20 @@ body.stmode .ruleCtl{display:none}
     </div>
   </section>
 
+
+  <section id="review" class="panel" hidden>
+    <h2>教師檢閱</h2>
+    <p class="note" style="margin-top:4px">輸入你在 Apps Script 設定的 TEACHER_KEY。密碼只保存在這個分頁，關閉後需要重新輸入。</p>
+    <form id="rvKeyForm" class="tokenform" style="margin-top:12px" autocomplete="off">
+      <label for="rvKey" style="position:absolute;left:-9999px">教師密碼</label>
+      <input id="rvKey" type="password" placeholder="教師密碼">
+      <button class="btn primary" type="submit">讀取測驗紀錄</button>
+    </form>
+    <p class="note" id="rvMsg" role="status" style="margin-top:10px"></p>
+    <label for="rvFilter" style="position:absolute;left:-9999px">篩選</label>
+    <input id="rvFilter" class="filter" type="search" placeholder="用姓名、代碼或文章編號篩選">
+    <div class="tblwrap" style="margin-top:10px"><table class="tbl" id="rvTable"></table></div>
+  </section>
 
   <footer>
     計分公式：Accuracy = (嘗試字數 − 錯誤數) ÷ 嘗試字數；WCPM = (嘗試字數 − 錯誤數) ÷ 朗讀秒數 × 60。
@@ -671,13 +718,13 @@ const $=s=>document.querySelector(s);
 const S={pid:null, seed:20260926, profile:"typical", asr:null, audioURL:null, audioBlob:null, recMode:null};
 /* students on the roster are always scored with one fixed rule set, so their results stay comparable */
 const FIXED_RULES={timing:"oneMin", t0:"firstWord", hes3:true, insCount:false, season:"fall"};
-const getRules=()=> (typeof ST!=="undefined" && ST.student) ? {...FIXED_RULES} : ({
+const getRules=()=> (S.override && S.override.rules) ? {...S.override.rules} : (typeof ST!=="undefined" && ST.student) ? {...FIXED_RULES} : ({
   timing:document.querySelector('input[name="timing"]:checked').value,
   t0:document.querySelector('input[name="t0"]:checked').value,
   hes3:$("#rHes").checked, insCount:$("#rIns").checked,
   season:document.querySelector('input[name="season"]:checked').value
 });
-const P=()=>PASSAGES.find(p=>String(p.id)===String(S.pid));
+const P=()=> (S.override && S.override.passage) || PASSAGES.find(p=>String(p.id)===String(S.pid));
 $("#seedOut").textContent=S.seed;
 
 function setStep(n){
@@ -849,7 +896,7 @@ function goRetell(){
   const p=P(); $("#rGrade").textContent="G"+p.grade;
   $("#rIdle").hidden=false; $("#rLive").hidden=true; $("#rUp").hidden=true;
   $("#rTimer").textContent="01:00"; $("#rHint").textContent="";
-  S.rBlob=null; setStep(3);
+  S.rBlob=null; if(S.rURL){ URL.revokeObjectURL(S.rURL); S.rURL=null; } setStep(3);
 }
 let rRec=null, rStream=null, rChunks=[], rTick=null, rRaf=null, rCtx=null, rT0=0, rStopping=false;
 $("#rStartBtn").onclick=async()=>{
@@ -910,7 +957,7 @@ async function uploadRetell(){
       server_not_configured:"伺服器還沒設定 OpenAI 金鑰。", network:"無法連上評分服務，請檢查網路後再送一次。"};
     retellFail(MSG[d.error] || `重述評分失敗（${d.error}），請再送一次。`); return;
   }
-  $("#rBar").style.width="100%"; S.retell=d; showResults();
+  $("#rBar").style.width="100%"; S.retell=d; if(S.rURL) URL.revokeObjectURL(S.rURL); S.rURL=URL.createObjectURL(S.rBlob); showResults();
 }
 $("#rRetryBtn").onclick=()=>uploadRetell();
 $("#rRedoBtn").onclick=()=>{ $("#rErr").hidden=true; $("#rErrActions").hidden=true; goRetell(); };
@@ -930,6 +977,7 @@ function renderRetell(p){
     <ul class="units">${ideas.map((u,i)=>{ const x=R.units[i]||{status:"none",evidence:""};
       return `<li class="${x.status}" title="${ST_ZH[x.status]}"><span class="ic">${IC[x.status]}</span><span class="tx${u.main?" main":""}">${u.main?"主旨：":""}${esc(u.text)}${x.evidence?`<span class="ev">“${esc(x.evidence)}”</span>`:""}</span></li>`; }).join("")}</ul>
     ${(R.misconceptions||[]).length?`<h3 style="margin-top:14px">誤解</h3><ul class="misc">${R.misconceptions.map(m=>`<li>${esc(m)}</li>`).join("")}</ul>`:""}
+    ${S.rURL?`<h3 style="margin-top:14px">重述錄音</h3><audio controls src="${S.rURL}" style="margin-top:6px"></audio>`:""}
     <h3 style="margin-top:14px">重述轉寫</h3><p class="reading" style="font-size:16px;line-height:1.7;margin-top:4px">${esc(R.transcript||"（沒有辨識到內容）")}</p>`;
   box.hidden=false;
 }
@@ -1065,7 +1113,8 @@ function renderResults(){
     else if(scs.length){ cls+=" sc"; said=scs.map(s=>a.hyp[s.j].word).join(" ")+" →"; sup="SC"; }
     if(inRange && r.hes){ cls+=" hes"; }
     const tt = r.h!=null ? `${a.hyp[r.h].start}–${a.hyp[r.h].end}s` : (inRange?"未讀出":"計時範圍外");
-    h+=`<span class="${cls}" title="${esc(tt)}">${said?`<span class="said">${esc(said)}</span>`:""}${esc(w.disp)}${sup?`<sup>${sup}</sup>`:""}</span>`;
+    const tStart = r.first!=null ? a.hyp[r.first].start : null;
+    h+=`<span class="${cls}" title="${esc(tt)}"${tStart!=null?` data-t="${tStart}"`:""}>${said?`<span class="said">${esc(said)}</span>`:""}${esc(w.disp)}${sup?`<sup>${sup}</sup>`:""}</span>`;
     if(inRange && pr.contours[i]){ const c=pr.contours[i]; const ar=c.contour==="fall"?"↘":c.contour==="rise"?"↗":"→";
       h+=`<span class="ctr ${c.ok?"ok":"bad"}" title="音高變化 ${c.f0_change_semitones} 半音；預期${c.exp==="rise"?"上揚":"下降"}">${ar}</span>`; }
     if(showPh && w.end && w.end!=="sentence") h+=`<span class="slash">${w.end==="major"?"//":"/"}</span>`;
@@ -1086,7 +1135,7 @@ function renderResults(){
     if(r.hes) rows.push([i,w.disp,`停頓 ${f1(r.pause)} 秒`,"停頓 > 3 秒",r.status==="correct",a.hyp[r.first].start]);
   });
   $("#miscues").innerHTML = rows.length ? `<thead><tr><th>字位</th><th>原文</th><th>實際讀出</th><th>類型</th><th>計為錯誤</th><th>時間</th></tr></thead><tbody>`+
-    rows.map(x=>`<tr><td class="m">${x[0]+1}</td><td class="r">${esc(x[1])}</td><td class="m">${esc(x[2])}</td><td>${x[3]}</td><td class="${x[4]?"yes":"no"}">${x[4]?"是":"否"}</td><td class="m">${x[5]==null?"—":x[5].toFixed(2)+"s"}</td></tr>`).join("")+"</tbody>"
+    rows.map(x=>`<tr${x[5]!=null?` data-t="${x[5]}"`:""}><td class="m">${x[0]+1}</td><td class="r">${esc(x[1])}</td><td class="m">${esc(x[2])}</td><td>${x[3]}</td><td class="${x[4]?"yes":"no"}">${x[4]?"是":"否"}</td><td class="m">${x[5]==null?"—":x[5].toFixed(2)+"s"}</td></tr>`).join("")+"</tbody>"
     : `<tbody><tr><td class="muted">沒有錯誤或修正。</td></tr></tbody>`;
 
   /* transcript */
@@ -1195,14 +1244,107 @@ async function saveResult(res){
     try{
       const d=await api({action:"save"},body);
       if(!d.ok) throw new Error(d.error||"save");
-      m.textContent=`已記錄 ${ST.student.name} 第 ${d.attempt||"?"} 次測驗：Accuracy ${body.accuracy}%、WCPM ${body.wcpm}、Prosody ${body.prosody}/4${body.retell?`、理解 ${body.retell.level}/4`:""}。`; return;
+      const saved=`已記錄 ${ST.student.name} 第 ${d.attempt||"?"} 次測驗：Accuracy ${body.accuracy}%、WCPM ${body.wcpm}、Prosody ${body.prosody}/4${body.retell?`、理解 ${body.retell.level}/4`:""}。`;
+      m.textContent=saved+" 正在保存錄音…";
+      const failed=await uploadArtifacts(body.rid, res.p, getRules());
+      m.textContent=saved+(failed?" 錄音保存失敗（成績已記錄）。":" 錄音已保存。");
+      return;
     }catch(err){
       if(k===0){ await new Promise(r=>setTimeout(r,800)); continue; }
       m.className="savemsg err"; m.textContent="成績沒有寫入成功，請再測一次或告訴老師。"; return;
     }
   }
 }
-setStep(1);
+/* ---------- Keep the recordings: upload after the score is saved ---------- */
+function blobToB64(blob){ return new Promise((ok,bad)=>{ const fr=new FileReader(); fr.onerror=()=>bad(fr.error);
+  fr.onload=()=>ok(String(fr.result).split(",")[1]||""); fr.readAsDataURL(blob); }); }
+async function uploadArtifacts(rid, p, rules){
+  const detail={version:1, created:new Date().toISOString(), student:{...ST.student},
+    passage:{id:p.id,title:p.title,grade:p.grade,text:p.text,ideas:p.ideas||""}, rules,
+    asr:S.asr, retell:S.retell, retellStatus:S.retellStatus||null, diag:S.diag||null};
+  const jobs=[["detail",new Blob([JSON.stringify(detail)],{type:"application/json"})]];
+  if(S.audioBlob && S.asr.engine!=="simulated") jobs.push(["reading",S.audioBlob]);
+  if(S.rBlob && S.retell && !S.retell.simulated) jobs.push(["retell",S.rBlob]);
+  let failed=0;
+  for(const [kind,blob] of jobs){
+    try{ const d=await api({action:"upload"},{token:ST.student.token, rid, kind, mime:(blob.type||"audio/webm").split(";")[0], data:await blobToB64(blob)});
+      if(!d.ok) failed++; }catch(_){ failed++; }
+  }
+  return failed;
+}
+
+/* ---------- Teacher review (open the page with #review) ---------- */
+const RV={key:"", records:[], rec:null};
+const reviewMode = location.hash.replace("#","")==="review";
+function rvMsg(t,err){ const el=$("#rvMsg"); el.textContent=t; el.classList.toggle("err",!!err); }
+function playAt(t){ const a=$("#audio"); if(!S.audioURL || !a) return; a.currentTime=Math.max(0,t-0.3); a.play().catch(()=>{}); }
+$("#marked").addEventListener("click",e=>{ const w=e.target.closest("[data-t]"); if(w) playAt(+w.dataset.t); });
+$("#miscues").addEventListener("click",e=>{ const r=e.target.closest("tr[data-t]"); if(r) playAt(+r.dataset.t); });
+
+if(reviewMode){
+  document.body.classList.add("reviewmode");
+  $("#rvAudioSlot").appendChild($("#audioBox"));
+  $("#s1").hidden=true; $("#review").hidden=false;
+  try{ RV.key=sessionStorage.getItem("orfTeacherKey")||""; }catch(_){}
+  $("#rvKey").value=RV.key;
+  if(!API_OK) rvMsg("尚未設定 config.js 的 Apps Script 網址。",true);
+  else if(RV.key) loadRecords();
+}
+$("#rvKeyForm").addEventListener("submit",e=>{ e.preventDefault(); RV.key=$("#rvKey").value.trim();
+  try{ sessionStorage.setItem("orfTeacherKey",RV.key); }catch(_){} loadRecords(); });
+async function loadRecords(){
+  rvMsg("讀取中…");
+  try{ const d=await api({action:"records"},{key:RV.key});
+    if(!d.ok){ rvMsg(d.error==="bad_key"?"密碼不正確。":"讀取失敗（"+d.error+"）。",true); return; }
+    RV.records=d.records; rvMsg(`共 ${d.records.length} 筆測驗。點一列開啟。`); renderRecords();
+  }catch(_){ rvMsg("無法連線試算表，請稍後再試。",true); }
+}
+$("#rvFilter").addEventListener("input",renderRecords);
+function renderRecords(){
+  const q=$("#rvFilter").value.trim().toLowerCase();
+  const list=RV.records.filter(r=>!q || [r.name,r.token,r.passage].some(v=>String(v).toLowerCase().includes(q)));
+  const d=v=>{ const t=new Date(v); return isNaN(t)?"":t.toLocaleString("zh-TW",{hour12:false,month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}); };
+  const v=x=>x===""||x==null?"—":esc(x);
+  $("#rvTable").innerHTML = list.length ? `<thead><tr><th>時間</th><th>姓名</th><th>代碼</th><th>年級</th><th>次</th><th>文章</th><th>WCPM</th><th>Prosody</th><th>理解</th><th>錄音</th><th>老師評分</th></tr></thead><tbody>`+
+    list.map(r=>`<tr class="rvrow" data-rid="${esc(r.record_id)}" tabindex="0"><td class="m">${d(r.tested_at)}</td><td>${esc(r.name)}</td><td class="m">${esc(r.token)}</td><td class="m">G${esc(r.grade)}</td><td class="m">${v(r.attempt)}</td><td class="m">${v(r.passage)}</td>
+      <td class="m">${v(r.wcpm)}</td><td class="m">${v(r.prosody)}</td><td class="m">${v(r.retell_level)}</td><td>${r.has_audio?"有":"—"}</td>
+      <td>${[r.teacher_wcpm,r.teacher_prosody,r.teacher_retell].some(x=>x!==""&&x!=null)?'<span class="chip good">已評</span>':""}</td></tr>`).join("")+"</tbody>"
+    : `<tbody><tr><td class="muted">沒有符合的測驗。</td></tr></tbody>`;
+}
+$("#rvTable").addEventListener("click",e=>{ const r=e.target.closest(".rvrow"); if(r) openRecord(r.dataset.rid); });
+$("#rvTable").addEventListener("keydown",e=>{ const r=e.target.closest(".rvrow"); if(r && e.key==="Enter") openRecord(r.dataset.rid); });
+
+const b64Blob=(b64,mime)=>{ const s=atob(b64), u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return new Blob([u],{type:mime}); };
+async function openRecord(rid){
+  rvMsg("開啟中，錄音較大時需要幾秒…");
+  let d; try{ d=await api({action:"record"},{key:RV.key,rid}); }catch(_){ rvMsg("無法連線試算表。",true); return; }
+  if(!d.ok){ rvMsg("開啟失敗（"+d.error+"）。",true); return; }
+  if(!d.detail){ rvMsg("這筆測驗沒有保存詳細資料（可能是保存錄音功能上線前的紀錄）。",true); return; }
+  const D=d.detail; RV.rec=d.record;
+  if(S.audioURL) URL.revokeObjectURL(S.audioURL); if(S.rURL) URL.revokeObjectURL(S.rURL);
+  S.audioURL = d.audio.reading ? URL.createObjectURL(b64Blob(d.audio.reading.data,d.audio.reading.mime)) : null;
+  S.rURL = d.audio.retell ? URL.createObjectURL(b64Blob(d.audio.retell.data,d.audio.retell.mime)) : null;
+  S.override={passage:D.passage, rules:D.rules};
+  S.asr=D.asr; S.retell=D.retell; S.retellStatus=D.retellStatus; S.diag=D.diag;
+  renderResults();
+  const R=d.record, v=x=>x===""||x==null?"":x;
+  $("#tpInfo").textContent=`${R.name}（${R.token}，G${R.grade}）第 ${R.attempt} 次 · ${new Date(R.tested_at).toLocaleString("zh-TW",{hour12:false})} · 文章 ${R.passage}`;
+  $("#tpAiWcpm").textContent=R.wcpm; $("#tpAiPros").textContent=R.prosody; $("#tpAiRetell").textContent=R.retell_level===""?"—":R.retell_level;
+  $("#tpWcpm").value=v(R.teacher_wcpm); $("#tpPros").value=v(R.teacher_prosody); $("#tpRetell").value=v(R.teacher_retell); $("#tpNote").value=v(R.teacher_note);
+  $("#tpMsg").textContent=""; $("#tpAudioNote").textContent = S.audioURL ? "點原文中的任一個字，錄音會從那裡開始播放。" : "這筆測驗沒有朗讀錄音。";
+  $("#review").hidden=true; $("#s3").hidden=false; window.scrollTo({top:0});
+}
+$("#tpBack").onclick=()=>{ $("#s3").hidden=true; $("#review").hidden=false; S.override=null; renderRecords(); };
+$("#tpSave").onclick=async()=>{
+  const body={key:RV.key, rid:RV.rec.record_id, teacher_wcpm:$("#tpWcpm").value, teacher_prosody:$("#tpPros").value, teacher_retell:$("#tpRetell").value, teacher_note:$("#tpNote").value};
+  $("#tpMsg").textContent="儲存中…";
+  try{ const d=await api({action:"teacher"},body); if(!d.ok) throw 0;
+    $("#tpMsg").textContent="已儲存到成績分頁。";
+    const r=RV.records.find(x=>x.record_id===RV.rec.record_id); if(r){ r.teacher_wcpm=body.teacher_wcpm; r.teacher_prosody=body.teacher_prosody; r.teacher_retell=body.teacher_retell; }
+  }catch(_){ $("#tpMsg").textContent="儲存失敗，請再試一次。"; }
+};
+
+if(!reviewMode) setStep(1);
 </script>
 
 </body>
