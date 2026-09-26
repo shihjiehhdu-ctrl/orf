@@ -198,6 +198,25 @@ footer{font-size:12.5px;color:var(--muted);line-height:1.6}
 #rosterTbl td.none{color:var(--muted)}
 body.stmode #backBtn, body.stmode #otherBtn{display:none}
 body.src-whisper .simonly{display:none}
+.retellcard{margin-top:14px;padding:18px 20px;border-radius:10px;background:var(--accent-soft);display:flex;flex-direction:column;gap:8px}
+.retellprompt{font:600 clamp(20px,2.6vw,26px)/1.35 var(--read);color:var(--ink)}
+.retellhint{font:500 16px var(--read);color:var(--accent);flex-basis:100%;min-height:1.4em}
+body.stmode #rSkipBtn{display:none}
+.units{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.units li{display:grid;grid-template-columns:22px 1fr;gap:8px;font-size:14px;line-height:1.5}
+.units .ic{font:600 14px var(--mono);text-align:center}
+.units .full .ic{color:var(--sc)} .units .partial .ic{color:var(--sub)} .units .none .ic{color:var(--muted)}
+.units .none .tx{color:var(--muted)}
+.units .ev{display:block;font:13px/1.45 var(--read);color:var(--muted);font-style:italic}
+.units .main{font-weight:600}
+.rsum{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13.5px;margin-top:8px;color:var(--muted)}
+.rsum b{color:var(--ink);font-weight:500}
+.misc{margin:6px 0 0;padding-left:18px;color:var(--omit);font-size:13.5px}
+
+.rulesFixed{display:none}
+body.stmode .rulesFixed{display:block}
+body.stmode .ruleCtl{display:none}
+.fixedlist{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
 </style>
 </head>
 <body>
@@ -211,7 +230,8 @@ body.src-whisper .simonly{display:none}
     <ol class="steps" id="steps" aria-label="測驗步驟">
       <li data-s="1"><b>1</b>選文</li>
       <li data-s="2"><b>2</b>朗讀錄音</li>
-      <li data-s="3"><b>3</b>分析結果</li>
+      <li data-s="3"><b>3</b>重述</li>
+      <li data-s="4"><b>4</b>分析結果</li>
     </ol>
   </header>
 
@@ -236,7 +256,7 @@ body.src-whisper .simonly{display:none}
     <span class="label">學生</span>
     <strong id="stName"></strong>
     <span class="grade" id="stGrade"></span>
-    <span class="muted" style="font-size:13px">成績會寫入名單</span>
+    <span class="muted" style="font-size:13px">成績會記錄到成績表</span>
     <button class="linkbtn" id="logoutBtn" type="button" style="margin-left:auto">登出</button>
   </div>
 
@@ -298,7 +318,42 @@ body.src-whisper .simonly{display:none}
     </div>
   </section>
 
-  <!-- STEP 3 -->
+  <!-- STEP 3: retell -->
+  <section id="sR" class="panel" hidden>
+    <div class="ptitle">
+      <span class="grade" id="rGrade"></span>
+      <h2>重述：用自己的話說說這篇文章</h2>
+    </div>
+    <div class="retellcard">
+      <p class="retellprompt" lang="en">Tell me about what you just read, in your own words.</p>
+      <p class="note">文章已經收起來了。請用英文說出你記得的內容：發生了什麼事、講了哪些重點。不用背原文，文法說錯也不會扣分。最多 1 分鐘。</p>
+    </div>
+    <div class="recbar" id="rIdle">
+      <button class="btn primary big" id="rStartBtn" type="button">開始重述</button>
+      <button class="linkbtn" id="rSkipBtn" type="button" style="margin-left:auto">略過重述</button>
+    </div>
+    <div class="recbar" id="rLive" hidden>
+      <span class="recdot" aria-hidden="true"></span>
+      <span class="timer" id="rTimer">01:00</span>
+      <div class="meter" id="rMeterWrap" hidden><i id="rMeter"></i></div>
+      <button class="btn stop big" id="rStopBtn" type="button">結束</button>
+      <p class="retellhint" id="rHint" lang="en" aria-live="polite"></p>
+    </div>
+    <div class="recbar" id="rUp" hidden>
+      <div class="progress">
+        <div class="bar"><i id="rBar"></i></div>
+        <p class="note" id="rUpMsg">正在轉寫並評分重述…</p>
+        <p class="savemsg err" id="rErr" hidden></p>
+        <div class="actions" id="rErrActions" hidden>
+          <button class="btn primary" id="rRetryBtn" type="button">再送一次</button>
+          <button class="btn" id="rRedoBtn" type="button">重新錄音</button>
+          <button class="btn" id="rSkip2Btn" type="button">略過重述，直接看結果</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 4 -->
   <section id="s3" hidden style="display:flex;flex-direction:column;gap:16px">
     <div class="ptitle">
       <span class="grade" id="p3grade"></span>
@@ -309,6 +364,7 @@ body.src-whisper .simonly{display:none}
 
     <div class="cols">
       <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div class="panel" id="retellPanel" hidden></div>
         <div class="panel">
           <h2>原文與朗讀比對</h2>
           <div class="legend">
@@ -324,7 +380,7 @@ body.src-whisper .simonly{display:none}
           </div>
           <div class="viewopts">
             <label><input type="checkbox" id="vAllPause">顯示所有邊界停頓</label>
-            <label><input type="checkbox" id="vPhrase">顯示預標的詞組邊界 /</label>
+            <label><input type="checkbox" id="vPhrase">顯示預標的斷句 / 與 //</label>
           </div>
           <div class="marked" id="marked"></div>
         </div>
@@ -337,6 +393,7 @@ body.src-whisper .simonly{display:none}
         <div class="panel">
           <h2>實際朗讀轉寫</h2>
           <p class="reading" id="transcript" style="font-size:17px;line-height:1.7;margin-top:10px"></p>
+          <p class="note" id="diag" style="margin-top:10px" hidden></p>
           <div id="audioBox" style="margin-top:12px" hidden><p class="note" style="margin-bottom:6px">你的錄音</p><audio id="audio" controls></audio></div>
         </div>
       </div>
@@ -352,8 +409,18 @@ body.src-whisper .simonly{display:none}
 
         <div class="panel">
           <h2>計分規則</h2>
-          <p class="note" style="margin:4px 0 12px">修改後會立即重新計算。</p>
-          <div class="rules">
+          <div class="rulesFixed">
+            <p class="note" style="margin:4px 0 12px">登入學生的測驗一律使用以下規則，成績才能互相比較。</p>
+            <ul class="fixedlist">
+              <li>WCPM 從第一個字的聲音開始計時</li>
+              <li>只計前 60 秒</li>
+              <li>停頓超過 3 秒算錯</li>
+              <li>插入字不算錯；自我修正與重複也不算錯</li>
+              <li>常模：Hasbrouck &amp; Tindal (2017) 秋季第 50 百分位（G1 無秋季常模，改用冬季）</li>
+            </ul>
+          </div>
+          <p class="note ruleCtl" style="margin:4px 0 12px">修改後會立即重新計算。</p>
+          <div class="rules ruleCtl">
             <div class="r">
               <span class="label">計時範圍</span>
               <div class="seg">
@@ -379,8 +446,8 @@ body.src-whisper .simonly{display:none}
               </div>
               <small class="muted" style="font-size:12px">Hasbrouck &amp; Tindal (2017) 第 50 百分位 WCPM</small>
             </div>
-            <div class="warnbox" id="normWarn"></div>
           </div>
+          <div class="warnbox" id="normWarn" style="margin-top:12px"></div>
         </div>
       </div>
     </div>
@@ -405,37 +472,55 @@ body.src-whisper .simonly{display:none}
   </footer>
 </div>
 
+<script src="config.js"></script>
 <script>
 /* ---------- Passages (“/” marks pre-annotated phrase boundaries) ---------- */
-const PASSAGES = [
- {id:1, grade:1, title:"My Red Kite", text:`I have a red kite. / It has a long tail. / On windy days, / I take it to the park. / I run fast / and the kite goes up. / It flies over the trees. / My dog Max runs with me. / He barks at the kite. / One day / the string broke. / The kite flew away / into the sky. / I was sad. / Then Dad came home / with a new kite. / It is blue. / Max barks at it too. / “Can we go to the park?” / I ask. / Dad smiles / and says yes.`},
- {id:2, grade:2, title:"The Lost Shoe", text:`Every morning, / Lena gets ready for school. / She eats her breakfast, / brushes her teeth, / and puts on her shoes. / But this morning, / one shoe was missing. / She looked under her bed. / She looked behind the door. / She even looked in the kitchen. / “Where is my shoe?” / she asked. / Her little brother laughed / and pointed at the garden. / The puppy was lying on the grass / with the shoe in his mouth. / Lena ran outside / and took it back. / The shoe was wet and dirty, / but she wore it anyway. / She was not late for school.`},
- {id:3, grade:3, title:"How Bees Make Honey", text:`Honey bees live together / in large groups / called colonies. / Each colony has one queen, / thousands of workers, / and a few drones. / The workers do most of the jobs. / On warm days, / they fly from flower to flower / to collect a sweet liquid / called nectar. / A bee stores the nectar / in a special stomach / and carries it back to the hive. / There, / other bees chew the nectar / and pass it along / from mouth to mouth. / Then they put it / into small wax cells. / The bees fan the cells / with their wings / until most of the water dries up. / What is left / is thick, golden honey. / The bees eat it / during the cold winter months / when there are no flowers.`},
- {id:4, grade:4, title:"The Night the Power Went Out", text:`The storm had been growing louder all evening. / Rain pounded against the windows, / and the wind made the old house creak. / Marcus was finishing his homework / when the lights flickered twice / and went out completely. / For a moment, / nobody said a word. / Then his grandmother lit a candle / and placed it in the middle of the table. / “When I was your age,” / she said, / “we had no electricity at all. / We told stories / to pass the time.” / Marcus had never heard / his grandmother talk about her childhood. / She described the farm where she grew up, / the goats that escaped every spring, / and the river where she learned to swim. / By the time the lights came back on, / Marcus did not want her to stop. / He asked if she would tell him another story tomorrow.`},
- {id:5, grade:5, title:"Why Leaves Change Color", text:`Every autumn, / forests across North America / turn brilliant shades of red, orange, and yellow. / Many people believe / that cold weather paints the leaves, / but the real explanation / is hidden inside the leaf itself. / During spring and summer, / leaves are filled with chlorophyll, / a green chemical / that helps plants turn sunlight into food. / Chlorophyll is so plentiful / that it covers up other colors / already present in the leaf. / As the days grow shorter, / trees prepare for winter / by slowing down food production. / The chlorophyll begins to break down, / and the yellow and orange pigments / finally become visible. / Some trees, such as maples, / also produce new red pigments / when sugar is trapped in their leaves. / Eventually, / a thin layer of cells / forms where each leaf joins the branch, / and the leaf drifts to the ground. / So why do some years / have brighter colors than others? / Sunny days and cool nights / usually produce the most dazzling displays.`},
- {id:6, grade:6, title:"The Engineers of the River", text:`Few animals change their surroundings / as dramatically as the beaver. / Using only their powerful front teeth, / beavers cut down small trees / and drag the branches into streams. / They weave the branches together, / pack the gaps with mud and stones, / and gradually build a dam / that can stretch more than a hundred meters. / Behind the dam, / the water rises / and spreads into a quiet pond. / This pond protects the beavers from predators, / because the entrance to their lodge / lies hidden beneath the surface. / However, / the effects of a single dam / reach far beyond one family of beavers. / The slow-moving water / creates wetlands / where frogs, ducks, and insects can thrive. / Sediment settles to the bottom, / which keeps the water downstream cleaner. / During dry summers, / the wetlands hold moisture / that might otherwise disappear. / For these reasons, / scientists call beavers a keystone species. / In several countries, / conservation groups are now returning beavers / to rivers where they once lived, / hoping these furry engineers / can repair damaged landscapes / more cheaply than humans could.`}
+const DEFAULT_PASSAGES = [
+ {id:1, grade:1, title:"My Red Kite", text:`I have a red kite. / It has a long tail. / On windy days, / I take it to the park. / I run fast / and the kite goes up. / It flies over the trees. / My dog Max runs with me. / He barks at the kite. / One day / the string broke. / The kite flew away / into the sky. / I was sad. / Then Dad came home / with a new kite. / It is blue. / Max barks at it too. / “Can we go to the park?” / I ask. / Dad smiles / and says yes.`, ideas:"* A child flies a red kite at the park on windy days.\nThe kite has a long tail.\nWhen the child runs, the kite goes up over the trees.\nThe dog Max runs along and barks at the kite.\nOne day the string broke and the kite flew away.\nThe child felt sad.\nDad brought home a new blue kite.\nThe child asks to go to the park again, and Dad says yes."},
+ {id:2, grade:2, title:"The Lost Shoe", text:`Every morning, / Lena gets ready for school. / She eats her breakfast, / brushes her teeth, / and puts on her shoes. / But this morning, / one shoe was missing. / She looked under her bed. / She looked behind the door. / She even looked in the kitchen. / “Where is my shoe?” / she asked. / Her little brother laughed / and pointed at the garden. / The puppy was lying on the grass / with the shoe in his mouth. / Lena ran outside / and took it back. / The shoe was wet and dirty, / but she wore it anyway. / She was not late for school.`, ideas:"* Lena could not find one of her shoes before school, and the puppy had it.\nEvery morning Lena gets ready for school (breakfast, teeth, shoes).\nOne shoe was missing.\nShe looked for it in many places (under the bed, behind the door, in the kitchen).\nHer little brother laughed and pointed to the garden.\nThe puppy was lying on the grass with the shoe in its mouth.\nLena took the shoe back; it was wet and dirty.\nShe wore it anyway and was not late for school."},
+ {id:3, grade:3, title:"How Bees Make Honey", text:`Honey bees live together / in large groups / called colonies. / Each colony has one queen, / thousands of workers, / and a few drones. / The workers do most of the jobs. / On warm days, / they fly from flower to flower / to collect a sweet liquid / called nectar. / A bee stores the nectar / in a special stomach / and carries it back to the hive. / There, / other bees chew the nectar / and pass it along / from mouth to mouth. / Then they put it / into small wax cells. / The bees fan the cells / with their wings / until most of the water dries up. / What is left / is thick, golden honey. / The bees eat it / during the cold winter months / when there are no flowers.`, ideas:"* Honey bees make honey from the nectar of flowers.\nHoney bees live together in big groups called colonies.\nA colony has one queen, many workers and a few drones; the workers do most of the jobs.\nWorkers fly from flower to flower to collect nectar.\nA bee carries the nectar back to the hive in a special stomach.\nOther bees chew the nectar and pass it from mouth to mouth.\nThey put it in wax cells and fan it with their wings to dry out the water.\nWhat is left is thick, golden honey.\nThe bees eat the honey in winter when there are no flowers."},
+ {id:4, grade:4, title:"The Night the Power Went Out", text:`The storm had been growing louder all evening. / Rain pounded against the windows, / and the wind made the old house creak. / Marcus was finishing his homework / when the lights flickered twice / and went out completely. / For a moment, / nobody said a word. / Then his grandmother lit a candle / and placed it in the middle of the table. / “When I was your age,” / she said, / “we had no electricity at all. / We told stories / to pass the time.” / Marcus had never heard / his grandmother talk about her childhood. / She described the farm where she grew up, / the goats that escaped every spring, / and the river where she learned to swim. / By the time the lights came back on, / Marcus did not want her to stop. / He asked if she would tell him another story tomorrow.`, ideas:"* During a storm the power went out, and Marcus's grandmother told him about her childhood.\nThere was a loud storm with rain and wind.\nMarcus was doing his homework when the lights went out.\nGrandmother lit a candle and put it on the table.\nWhen she was young they had no electricity, so they told stories to pass the time.\nMarcus had never heard her talk about her childhood before.\nShe told him about the farm, the goats that escaped, and the river where she learned to swim.\nWhen the lights came back on, Marcus did not want her to stop.\nHe asked her to tell another story tomorrow."},
+ {id:5, grade:5, title:"Why Leaves Change Color", text:`Every autumn, / forests across North America / turn brilliant shades of red, orange, and yellow. / Many people believe / that cold weather paints the leaves, / but the real explanation / is hidden inside the leaf itself. / During spring and summer, / leaves are filled with chlorophyll, / a green chemical / that helps plants turn sunlight into food. / Chlorophyll is so plentiful / that it covers up other colors / already present in the leaf. / As the days grow shorter, / trees prepare for winter / by slowing down food production. / The chlorophyll begins to break down, / and the yellow and orange pigments / finally become visible. / Some trees, such as maples, / also produce new red pigments / when sugar is trapped in their leaves. / Eventually, / a thin layer of cells / forms where each leaf joins the branch, / and the leaf drifts to the ground. / So why do some years / have brighter colors than others? / Sunny days and cool nights / usually produce the most dazzling displays.`, ideas:"* Leaves change color in autumn because the green chlorophyll breaks down and other colors show.\nIn autumn, forests turn red, orange and yellow.\nMany people think cold weather causes the colors, but the real reason is inside the leaf.\nIn spring and summer leaves are full of green chlorophyll, which helps plants make food from sunlight.\nThe chlorophyll covers up other colors that are already in the leaf.\nWhen days get shorter, trees make less food and the chlorophyll breaks down, so yellow and orange show.\nSome trees, like maples, make new red colors when sugar is trapped in the leaves.\nIn the end the leaf separates from the branch and falls to the ground.\nSunny days and cool nights make the brightest colors."},
+ {id:6, grade:6, title:"The Engineers of the River", text:`Few animals change their surroundings / as dramatically as the beaver. / Using only their powerful front teeth, / beavers cut down small trees / and drag the branches into streams. / They weave the branches together, / pack the gaps with mud and stones, / and gradually build a dam / that can stretch more than a hundred meters. / Behind the dam, / the water rises / and spreads into a quiet pond. / This pond protects the beavers from predators, / because the entrance to their lodge / lies hidden beneath the surface. / However, / the effects of a single dam / reach far beyond one family of beavers. / The slow-moving water / creates wetlands / where frogs, ducks, and insects can thrive. / Sediment settles to the bottom, / which keeps the water downstream cleaner. / During dry summers, / the wetlands hold moisture / that might otherwise disappear. / For these reasons, / scientists call beavers a keystone species. / In several countries, / conservation groups are now returning beavers / to rivers where they once lived, / hoping these furry engineers / can repair damaged landscapes / more cheaply than humans could.`, ideas:"* Beavers build dams that change the land around them and help many other living things.\nBeavers cut down small trees with their teeth and drag branches into streams.\nThey build dams from branches, mud and stones; a dam can be very long.\nThe dam makes a pond that protects beavers, because the entrance to their lodge is under water.\nThe slow water creates wetlands where frogs, ducks and insects can live.\nMud and sand settle to the bottom, so the water downstream is cleaner.\nWetlands keep water during dry summers.\nScientists call beavers a keystone species.\nSome countries are bringing beavers back to repair land more cheaply than people could."}
 ];
 /* Hasbrouck & Tindal (2017), 50th percentile WCPM */
+let PASSAGES = DEFAULT_PASSAGES;
 const NORMS = {1:{fall:null,winter:29,spring:60},2:{fall:50,winter:84,spring:100},3:{fall:83,winter:97,spring:112},4:{fall:94,winter:120,spring:133},5:{fall:121,winter:133,spring:146},6:{fall:132,winter:145,spring:146}};
 const SEASON_ZH = {fall:"秋季",winter:"冬季",spring:"春季"};
 
 /* ---------- Text handling ---------- */
 const norm = t => t.toLowerCase().replace(/[’‘]/g,"'").replace(/[^a-z'\-]/g,"").replace(/^[-']+|[-']+$/g,"");
+/* Passage markup (all optional):
+   /       phrase boundary: a pause here is fine, never counted against the reader
+   //      required pause: reading straight through is marked 連讀, like a sentence end
+   {up}    after a sentence's last word: expect rising pitch
+   {down}  after a sentence's last word: expect falling pitch
+   Without {up}/{down}: "." "!" and wh-questions expect a fall; other "?" questions expect a rise. */
+const MARKUP=/^(\/\/?|\{(?:up|down)\})$/i;
+const WH=new Set(["what","where","when","why","who","whom","whose","which","how"]);
 function parse(text){
-  const words=[]; let sid=0;
-  for(const t of text.trim().split(/\s+/)){
-    if(t==="/"){ const L=words[words.length-1]; if(L && !L.end) L.end="phrase"; continue; }
+  const words=[]; let sid=0, sStart=0;
+  const toks=String(text).trim().replace(/(\S)(\{(?:up|down)\})/gi,"$1 $2").split(/\s+/);
+  for(const t of toks){
+    const L=words[words.length-1];
+    if(t==="/"){ if(L && !L.end) L.end="phrase"; continue; }
+    if(t==="//"){ if(L && L.end!=="sentence") L.end="major"; continue; }
+    if(/^\{up\}$/i.test(t)){ if(L) L.expOverride="rise"; continue; }
+    if(/^\{down\}$/i.test(t)){ if(L) L.expOverride="fall"; continue; }
     const n=norm(t); if(!n) continue;
     let end=null,q=false;
     if(/[.!?][”"’)]*$/.test(t)){ end="sentence"; q=/\?[”"’)]*$/.test(t); }
     else if(/[,;:][”"’)]*$/.test(t)) end="clause";
-    words.push({i:words.length, disp:t, n, end, q, sid});
-    if(end==="sentence") sid++;
+    words.push({i:words.length, disp:t, n, end, q, sid, sStart});
+    if(end==="sentence"){ sid++; sStart=words.length; }
   }
   const L=words[words.length-1]; if(L && L.end!=="sentence") L.end="sentence";
+  words.forEach(w=>{ if(w.end!=="sentence") return;
+    w.exp = w.expOverride || (w.q ? (WH.has(words[w.sStart].n) ? "fall" : "rise") : "fall"); });
   return words;
 }
-const displayText = text => text.replace(/\s\/\s/g," ").replace(/\s+/g," ").trim();
+const displayText = text => String(text).split(/\s+/).filter(t=>!MARKUP.test(t)).join(" ").replace(/\{(?:up|down)\}/gi,"").trim();
+const isPauseReq = e => e==="sentence" || e==="major";
 const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 function lev(a,b){ const m=a.length,n=b.length; if(!m) return n; if(!n) return m;
@@ -469,7 +554,7 @@ function simulate(words, grade, profKey, seed){
     out.push({word:w,start:+t.toFixed(2),end:+(t+d).toFixed(2),confidence:+u(0.72,0.99).toFixed(2)}); t+=d; };
   words.forEach((w,i)=>{
     if(i>0){ const pe=words[i-1].end; let g;
-      if(pe==="sentence") g = R()<P.runon ? u(0.04,0.12) : u(0.4,0.75);
+      if(isPauseReq(pe)) g = R()<P.runon ? u(0.04,0.12) : u(0.4,0.75);
       else if(pe==="clause") g = R()<P.runon ? u(0.03,0.08) : u(0.2,0.42);
       else if(pe==="phrase") g = u(0.06,0.24);
       else g = R()<P.mid ? u(0.5,1.5) : u(0.02,0.08);
@@ -483,7 +568,7 @@ function simulate(words, grade, profKey, seed){
     else say(w.n);
     if(R()<P.rep){ t+=u(0.08,0.2); say(w.n); }
     if(w.end==="sentence" && out.length){
-      const exp=w.q?"rise":"fall"; let c;
+      const exp=w.exp; let c;
       if(R()<P.ctr) c=exp; else c = R()<0.7 ? "flat" : (exp==="rise"?"fall":"rise");
       const st = c==="fall"?u(-6,-2.5):c==="rise"?u(2.5,6):u(-1,1);
       pitch.push({t:out[out.length-1].end, contour:c, f0_change_semitones:+st.toFixed(1)});
@@ -499,7 +584,11 @@ function align(ref,hyp){
   for(let i=0;i<=n;i++) D[i][0]=i; for(let j=0;j<=m;j++) D[0][j]=j;
   for(let i=1;i<=n;i++) for(let j=1;j<=m;j++)
     D[i][j]=Math.min(D[i-1][j-1]+sc(ref[i-1],hyp[j-1]), D[i-1][j]+1, D[i][j-1]+1);
-  const ops=[]; let i=n,j=m; const E=1e-9;
+  /* a reader who stops early leaves the rest of the passage unread: those trailing words cost nothing,
+     otherwise a late "the park" could be matched far down the passage instead of where it was read */
+  let iEnd=n, best=Infinity; for(let k=0;k<=n;k++){ const c=D[k][m]; if(c<best-1e-9){ best=c; iEnd=k; } }
+  const ops=[]; for(let k=n-1;k>=iEnd;k--) ops.push({type:"del",i:k});
+  let i=iEnd,j=m; const E=1e-9;
   while(i>0||j>0){
     if(i>0&&j>0 && Math.abs(D[i][j]-(D[i-1][j-1]+sc(ref[i-1],hyp[j-1])))<E){ ops.push({type:ref[i-1]===hyp[j-1]?"match":"sub",i:i-1,j:j-1}); i--; j--; }
     else if(i>0 && Math.abs(D[i][j]-(D[i-1][j]+1))<E){ ops.push({type:"del",i:i-1}); i--; }
@@ -556,17 +645,17 @@ function analyze(words, asr, rules, grade){
   let sEnds=0,sPaused=0,runOn=[],mid=0,midList=[],cTot=0,cOk=0;
   for(let i=1;i<A;i++){ const prev=words[i-1], r=R[i];
     if(r.pause==null) continue;
-    if(prev.end==="sentence" && R[i-1].status!=="omit"){ sEnds++; if(r.pause>=0.25) sPaused++; else runOn.push(i); }
+    if(isPauseReq(prev.end) && R[i-1].status!=="omit"){ sEnds++; if(r.pause>=0.25) sPaused++; else runOn.push(i); }
     if(!prev.end && r.pause>=0.5 && !(r.hes)) { mid++; midList.push(i); }
   }
   const contours={};
   for(let k=0;k<A;k++){ if(words[k].end!=="sentence" || R[k].h==null) continue;
     const e=hyp[R[k].h].end, p=asr.pitch.find(p=>Math.abs(p.t-e)<0.06); if(!p) continue;
-    const exp=words[k].q?"rise":"fall"; cTot++; const ok=p.contour===exp; if(ok) cOk++;
+    const exp=words[k].exp; cTot++; const ok=p.contour===exp; if(ok) cOk++;
     contours[k]={...p,exp,ok}; }
   const per100=x=>A?x/A*100:0;
   const boundaryRate=sEnds?sPaused/sEnds:1, contourRate=cTot?cOk/cTot:1, midPer100=per100(mid), smoothPer100=per100(rep+sc+hes);
-  const normSeason = NORMS[grade][rules.season]!=null ? rules.season : "spring";
+  const normSeason = NORMS[grade][rules.season]!=null ? rules.season : "winter";
   const normV=NORMS[grade][normSeason], paceRatio=wcpm/normV;
   const dExpr = !cTot ? null : contourRate>=0.9?4:contourRate>=0.7?3:contourRate>=0.45?2:1;
   const dPhr = (midPer100<=1&&boundaryRate>=0.85)?4:(midPer100<=3&&boundaryRate>=0.65)?3:midPer100<=7?2:1;
@@ -580,29 +669,32 @@ function analyze(words, asr, rules, grade){
 /* ---------- State & UI ---------- */
 const $=s=>document.querySelector(s);
 const S={pid:null, seed:20260926, profile:"typical", asr:null, audioURL:null, audioBlob:null, recMode:null};
-const getRules=()=>({
+/* students on the roster are always scored with one fixed rule set, so their results stay comparable */
+const FIXED_RULES={timing:"oneMin", t0:"firstWord", hes3:true, insCount:false, season:"fall"};
+const getRules=()=> (typeof ST!=="undefined" && ST.student) ? {...FIXED_RULES} : ({
   timing:document.querySelector('input[name="timing"]:checked').value,
   t0:document.querySelector('input[name="t0"]:checked').value,
   hes3:$("#rHes").checked, insCount:$("#rIns").checked,
   season:document.querySelector('input[name="season"]:checked').value
 });
-const P=()=>PASSAGES.find(p=>p.id===S.pid);
+const P=()=>PASSAGES.find(p=>String(p.id)===String(S.pid));
 $("#seedOut").textContent=S.seed;
 
 function setStep(n){
-  ["s1","s2","s3"].forEach((id,k)=>{ $("#"+id).hidden = (k+1)!==n; });
+  ["s1","s2","sR","s3"].forEach((id,k)=>{ $("#"+id).hidden = (k+1)!==n; });
   document.querySelectorAll("#steps li").forEach(li=>{ const s=+li.dataset.s; li.classList.toggle("on",s===n); li.classList.toggle("done",s<n); });
   window.scrollTo({top:0,behavior:"instant"in window?"instant":"auto"});
 }
 
 /* step 1 */
-$("#pgrid").innerHTML = PASSAGES.map(p=>{ const w=parse(p.text).length;
+function renderGrid(){ $("#pgrid").innerHTML = PASSAGES.map(p=>{ const w=parse(p.text).length;
   return `<button class="pcard" type="button" data-id="${p.id}">
-    <div class="row"><span class="grade">G${p.grade}</span><span class="muted num" style="font-size:12.5px">#${p.id} · ${w} 字</span></div>
+    <div class="row"><span class="grade">G${p.grade}</span><span class="muted num" style="font-size:12.5px">#${esc(p.id)} · ${w} 字</span></div>
     <span class="t">${esc(p.title)}</span>
-    <span class="ex">${esc(displayText(p.text))}</span></button>`; }).join("");
-$("#pgrid").addEventListener("click",e=>{ const b=e.target.closest(".pcard"); if(b) openPassage(+b.dataset.id); });
-$("#demoBtn").onclick=()=>{ S.pid=3; setProfile("typical"); S.asr=simulate(parse(P().text),P().grade,S.profile,S.seed); S.audioURL=null; renderResults(); setStep(3); };
+    <span class="ex">${esc(displayText(p.text))}</span></button>`; }).join(""); }
+renderGrid();
+$("#pgrid").addEventListener("click",e=>{ const b=e.target.closest(".pcard"); if(b) openPassage(b.dataset.id); });
+$("#demoBtn").onclick=()=>{ S.pid=(PASSAGES.find(p=>p.grade===3)||PASSAGES[0]).id; setProfile("typical"); S.asr=simulate(parse(P().text),P().grade,S.profile,S.seed); S.audioURL=null; S.retell=simulateRetell(P()); S.retellStatus=null; renderResults(); setStep(4); };
 
 function setProfile(v){ S.profile=v; $("#pf-"+v).checked=true; }
 document.querySelectorAll('input[name="profile"]').forEach(r=>r.addEventListener("change",()=>{
@@ -630,7 +722,9 @@ $("#startBtn").onclick=async()=>{
   S.audioURL=null; S.audioBlob=null; chunks=[];
   try{
     stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:true,autoGainControl:true}});
-    rec=new MediaRecorder(stream); rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); }; rec.start();
+    rec=new MediaRecorder(stream); rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+    S.trackEndedAt=null; stream.getAudioTracks()[0].addEventListener("ended",()=>{ S.trackEndedAt=(performance.now()-tStart)/1000; });
+    rec.start(1000); /* hand over data every second so nothing is held back until stop */
     S.recMode="real"; $("#recNote").textContent="錄音中。讀完請按「結束」。";
     try{ actx=new (window.AudioContext||window.webkitAudioContext)(); const an=actx.createAnalyser(); an.fftSize=512;
       actx.createMediaStreamSource(stream).connect(an); const buf=new Uint8Array(an.fftSize); $("#meterWrap").hidden=false;
@@ -654,7 +748,8 @@ function upFail(msg){ $("#upErr").textContent=msg; $("#upErr").hidden=false; $("
 
 $("#stopBtn").onclick=async()=>{
   clearInterval(tick); if(raf) cancelAnimationFrame(raf);
-  if(rec){ await new Promise(res=>{ rec.onstop=res; rec.stop(); }); stream.getTracks().forEach(t=>t.stop());
+  S.timerSec=(performance.now()-tStart)/1000;
+  if(rec){ await new Promise(res=>{ if(rec.state==="inactive") return res(); rec.onstop=res; rec.stop(); }); stream.getTracks().forEach(t=>t.stop());
     if(actx) actx.close();
     if(chunks.length){ S.audioBlob=new Blob(chunks,{type:rec.mimeType||"audio/webm"}); S.audioURL=URL.createObjectURL(S.audioBlob); } }
   $("#recLive").hidden=true; $("#recUp").hidden=false;
@@ -675,10 +770,20 @@ async function runWhisper(){
   setUpSteps(["上傳錄音，由 Whisper 辨識","分析句末音高","原文與朗讀內容對齊、計分"]);
   const words=parse(P().text);
   upStep(0,"on");
+  const D=S.diag={timerSec:S.timerSec, mime:S.audioBlob.type||"?", blobKB:Math.round(S.audioBlob.size/1024), trackEndedAt:S.trackEndedAt,
+    decodedSec:null, uploaded:"original", uploadKB:null, whisperSec:null, words:0};
+  let file=S.audioBlob, fname;
+  try{
+    S.decoded=await decodeBlob(S.audioBlob); D.decodedSec=S.decoded.duration;
+    const wav=await toWav16k(S.decoded);
+    if(wav.size<=3_900_000){ file=wav; D.uploaded="wav"; }
+  }catch(_){ S.decoded=null; }
+  if(file===S.audioBlob){ const t=S.audioBlob.type; fname="reading."+(/mp4|m4a|aac/.test(t)?"m4a":/ogg/.test(t)?"ogg":"webm"); }
+  else fname="reading.wav";
+  D.uploadKB=Math.round(file.size/1024);
   let data;
   try{
-    const ext = /mp4|m4a|aac/.test(S.audioBlob.type) ? "m4a" : /ogg/.test(S.audioBlob.type) ? "ogg" : /wav/.test(S.audioBlob.type) ? "wav" : "webm";
-    const fd=new FormData(); fd.append("audio",S.audioBlob,"reading."+ext);
+    const fd=new FormData(); fd.append("audio",file,fname);
     fd.append("token",ST.student?ST.student.token:""); fd.append("passage",String(S.pid));
     const r=await fetch(TRANSCRIBE_API,{method:"POST",body:fd});
     data=await r.json().catch(()=>({ok:false,error:"bad_response_"+r.status}));
@@ -691,11 +796,12 @@ async function runWhisper(){
     upFail(MSG[code] || `辨識失敗（${code}），請再送一次。`); return;
   }
   upStep(0,"ok");
+  D.whisperSec=data.duration; D.words=(data.words||[]).length;
   const hyp=whisperToHyp(data.words||[], words);
   if(!hyp.length){ upFail("沒有辨識到任何英文字。請確認麥克風有收到聲音後重新錄音。"); return; }
   upStep(1,"on");
   let pitch=[];
-  try{ pitch=await sentenceContours(S.audioBlob, hyp, words); }catch(_){ pitch=[]; }
+  try{ if(S.decoded) pitch=sentenceContours(S.decoded, hyp, words); }catch(_){ pitch=[]; }
   upStep(1,"ok"); upStep(2,"on");
   S.asr={engine:data.engine||"whisper-1", text:data.text||"", words:hyp, pitch};
   upStep(2,"ok");
@@ -703,8 +809,129 @@ async function runWhisper(){
 }
 
 function finish(){
-  const res=renderResults(); setStep(3);
+  S.retell=null; S.retellStatus=null;
+  if(parseIdeas(P().ideas).length) goRetell(); else { S.retellStatus="這篇文章沒有設定意義單位"; showResults(); }
+}
+function showResults(){
+  const res=renderResults(); setStep(4);
   if(ST.student) saveResult(res); else $("#saveMsg").hidden=true;
+}
+
+/* ---------- Retell ---------- */
+const RETELL_API="/api/retell", RETELL_MAX=60;
+function parseIdeas(s){ return String(s||"").split(/\r?\n/).map(l=>l.trim()).filter(Boolean)
+  .map(l=>({main:l.startsWith("*"), text:l.replace(/^\*\s*/,"").replace(/^\d+[.)]\s*/,"")})); }
+/* same rule as the server: the model only marks units, the level comes from fixed thresholds */
+function retellScore(units, ideas, j){
+  const pts={full:1,partial:0.5,none:0}; let got=0,full=0,partial=0;
+  ideas.forEach((_,i)=>{ const st=units[i]?units[i].status:"none"; got+=pts[st]; if(st==="full") full++; if(st==="partial") partial++; });
+  const recall=ideas.length?got/ideas.length:0, mis=(j.misconceptions||[]).length;
+  let level=1;
+  if(recall>=0.7 && j.main_idea===2 && mis===0) level=4;
+  else if(recall>=0.5 && j.main_idea>=1) level=3;
+  else if(recall>=0.25 || j.main_idea>=1) level=2;
+  return {recall:Math.round(recall*1000)/10, full, partial, total:ideas.length, level};
+}
+function simulateRetell(p){
+  const ideas=parseIdeas(p.ideas); if(!ideas.length) return null;
+  const R=rng(S.seed+7), cov={fluent:0.75,typical:0.5,struggling:0.25}[S.profile];
+  const units=ideas.map((u,i)=>{ const r=R(); const st=r<cov?"full":r<cov+0.15?"partial":"none";
+    return {n:i+1,status:st,evidence:st==="none"?"":u.text.split(/[,;(]/)[0].toLowerCase()}; });
+  const said=units.filter(u=>u.status!=="none").map(u=>u.evidence);
+  const j={main_idea: units[ideas.findIndex(u=>u.main)]?.status==="full"?2:said.length?1:0,
+    sequence: said.length<2?null:(R()<0.7?2:1), misconceptions: R()<0.2?["（模擬）把事件的順序或原因說反了"]:[], verbatim:false,
+    note_zh:"（模擬結果）這是程式產生的示範資料，不是 AI 的實際評分。"};
+  const transcript = said.length ? "Um, "+said.join(". And ")+"." : "";
+  return {simulated:true, transcript, words:transcript.split(/\s+/).filter(Boolean).length, units, ...j, ...retellScore(units,ideas,j)};
+}
+
+function goRetell(){
+  const p=P(); $("#rGrade").textContent="G"+p.grade;
+  $("#rIdle").hidden=false; $("#rLive").hidden=true; $("#rUp").hidden=true;
+  $("#rTimer").textContent="01:00"; $("#rHint").textContent="";
+  S.rBlob=null; setStep(3);
+}
+let rRec=null, rStream=null, rChunks=[], rTick=null, rRaf=null, rCtx=null, rT0=0, rStopping=false;
+$("#rStartBtn").onclick=async()=>{
+  $("#rIdle").hidden=true; $("#rLive").hidden=false; $("#rMeterWrap").hidden=true; $("#rHint").textContent="";
+  rChunks=[]; rStopping=false; S.rBlob=null; rRec=null;
+  const sim = srcNow()==="sim";
+  if(!sim){
+    try{
+      rStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:true,autoGainControl:true}});
+      rRec=new MediaRecorder(rStream); rRec.ondataavailable=e=>{ if(e.data.size) rChunks.push(e.data); }; rRec.start(1000);
+    }catch(err){ $("#rLive").hidden=true; retellFail("無法使用麥克風，請允許瀏覽器使用麥克風後重新錄音。"); return; }
+  }
+  rT0=performance.now(); let lastVoice=rT0;
+  if(rRec){ try{ rCtx=new (window.AudioContext||window.webkitAudioContext)(); const an=rCtx.createAnalyser(); an.fftSize=512;
+    rCtx.createMediaStreamSource(rStream).connect(an); const buf=new Uint8Array(an.fftSize); $("#rMeterWrap").hidden=false;
+    const loop=()=>{ an.getByteTimeDomainData(buf); let s=0; for(const v of buf){ const x=(v-128)/128; s+=x*x; } const lv=Math.sqrt(s/buf.length);
+      $("#rMeter").style.width=Math.min(100,lv*400)+"%"; const now=performance.now(); if(lv>0.03) lastVoice=now;
+      /* after 5 s of silence, prompt like an examiner would */
+      $("#rHint").textContent = (now-lastVoice>5000) ? ((now-rT0)<8000 ? "What was it about?" : "Can you tell me more?") : "";
+      rRaf=requestAnimationFrame(loop); }; loop(); }catch(_){} }
+  rTick=setInterval(()=>{ const left=Math.max(0,RETELL_MAX-(performance.now()-rT0)/1000);
+    const c=Math.ceil(left); $("#rTimer").textContent="0"+Math.floor(c/60)+":"+String(c%60).padStart(2,"0");
+    if(left<=0) rStop(); },200);
+};
+$("#rStopBtn").onclick=()=>rStop();
+async function rStop(){
+  if(rStopping) return; rStopping=true;
+  clearInterval(rTick); if(rRaf) cancelAnimationFrame(rRaf);
+  if(rRec){ await new Promise(res=>{ if(rRec.state==="inactive") return res(); rRec.onstop=res; rRec.stop(); });
+    rStream.getTracks().forEach(t=>t.stop()); if(rCtx) rCtx.close();
+    if(rChunks.length) S.rBlob=new Blob(rChunks,{type:rRec.mimeType||"audio/webm"}); }
+  $("#rLive").hidden=true; $("#rUp").hidden=false;
+  if(srcNow()==="sim"){ runRetellSim(); return; }
+  if(!S.rBlob){ retellFail("沒有錄到聲音，請重新錄音。"); return; }
+  uploadRetell();
+}
+function retellFail(msg){ $("#rUp").hidden=false; $("#rErr").textContent=msg; $("#rErr").hidden=false; $("#rErrActions").hidden=false;
+  $("#rRetryBtn").hidden=!S.rBlob; $("#rBar").style.width="0"; $("#rUpMsg").hidden=true; }
+async function runRetellSim(){
+  $("#rErr").hidden=true; $("#rErrActions").hidden=true; $("#rUpMsg").hidden=false; $("#rBar").style.width="50%";
+  await new Promise(r=>setTimeout(r,600)); $("#rBar").style.width="100%";
+  S.retell=simulateRetell(P()); showResults();
+}
+async function uploadRetell(){
+  $("#rErr").hidden=true; $("#rErrActions").hidden=true; $("#rUpMsg").hidden=false; $("#rBar").style.width="30%";
+  const p=P(); let file=S.rBlob, fname="retell.webm";
+  try{ const wav=await toWav16k(await decodeBlob(S.rBlob)); if(wav.size<=3_900_000){ file=wav; fname="retell.wav"; } }
+  catch(_){ const t=S.rBlob.type; fname="retell."+(/mp4|m4a|aac/.test(t)?"m4a":/ogg/.test(t)?"ogg":"webm"); }
+  const fd=new FormData(); fd.append("audio",file,fname); fd.append("token",ST.student?ST.student.token:"");
+  fd.append("passage",String(p.id)); fd.append("text",p.text); fd.append("ideas",p.ideas||"");
+  $("#rBar").style.width="60%";
+  let d;
+  try{ const r=await fetch(RETELL_API,{method:"POST",body:fd}); d=await r.json().catch(()=>({ok:false,error:"bad_response_"+r.status})); }
+  catch(_){ d={ok:false,error:"network"}; }
+  if(!d.ok){
+    const MSG={token_required:"練習模式沒有開放重述評分，請輸入學生代碼，或略過重述。", bad_token:"代碼驗證失敗。",
+      no_ideas:"這篇文章還沒有設定意義單位，無法評分。", too_large:"錄音檔太大，請重新錄一段較短的重述。",
+      server_not_configured:"伺服器還沒設定 OpenAI 金鑰。", network:"無法連上評分服務，請檢查網路後再送一次。"};
+    retellFail(MSG[d.error] || `重述評分失敗（${d.error}），請再送一次。`); return;
+  }
+  $("#rBar").style.width="100%"; S.retell=d; showResults();
+}
+$("#rRetryBtn").onclick=()=>uploadRetell();
+$("#rRedoBtn").onclick=()=>{ $("#rErr").hidden=true; $("#rErrActions").hidden=true; goRetell(); };
+$("#rSkipBtn").onclick=$("#rSkip2Btn").onclick=()=>{ S.retell=null; S.retellStatus= ST.student ? "重述未完成" : "略過重述"; showResults(); };
+
+const LEVEL_ZH={4:"完整理解",3:"大致理解",2:"部分理解",1:"理解有限"};
+function renderRetell(p){
+  const box=$("#retellPanel"), R=S.retell;
+  if(!R){ if(S.retellStatus){ box.innerHTML=`<h2>重述理解</h2><p class="note" style="margin-top:6px">${esc(S.retellStatus)}</p>`; box.hidden=false; } else box.hidden=true; return; }
+  const ideas=parseIdeas(p.ideas), IC={full:"✓",partial:"△",none:"–"}, ST_ZH={full:"有說到",partial:"部分說到",none:"沒說到"};
+  const seq = R.sequence==null ? "不適用" : `${R.sequence}/2`;
+  box.innerHTML=`<h2>重述理解${R.simulated?' <span class="chip mid">模擬</span>':""}</h2>
+    <div class="rsum"><span>主旨 <b>${R.main_idea}/2</b></span><span>順序 <b>${seq}</b></span>
+      <span>意義單位 <b>${R.full} 完整、${R.partial} 部分 / 共 ${R.total}</b></span><span>重述字數 <b>${R.words}</b></span>
+      ${R.verbatim?'<span style="color:var(--warn)">大量逐字重複原文</span>':""}</div>
+    ${R.note_zh?`<p style="margin-top:10px;font-size:14px">${esc(R.note_zh)}</p>`:""}
+    <ul class="units">${ideas.map((u,i)=>{ const x=R.units[i]||{status:"none",evidence:""};
+      return `<li class="${x.status}" title="${ST_ZH[x.status]}"><span class="ic">${IC[x.status]}</span><span class="tx${u.main?" main":""}">${u.main?"主旨：":""}${esc(u.text)}${x.evidence?`<span class="ev">“${esc(x.evidence)}”</span>`:""}</span></li>`; }).join("")}</ul>
+    ${(R.misconceptions||[]).length?`<h3 style="margin-top:14px">誤解</h3><ul class="misc">${R.misconceptions.map(m=>`<li>${esc(m)}</li>`).join("")}</ul>`:""}
+    <h3 style="margin-top:14px">重述轉寫</h3><p class="reading" style="font-size:16px;line-height:1.7;margin-top:4px">${esc(R.transcript||"（沒有辨識到內容）")}</p>`;
+  box.hidden=false;
 }
 
 /* ---------- Whisper output → hypothesis words ---------- */
@@ -730,9 +957,25 @@ function whisperToHyp(ww, refWords){
 }
 
 /* ---------- Sentence-final pitch (autocorrelation F0 on the recording) ---------- */
-async function sentenceContours(blob, hyp, refWords){
+async function decodeBlob(blob){
   const AC=window.AudioContext||window.webkitAudioContext; const ctx=new AC();
-  let buf; try{ buf=await ctx.decodeAudioData(await blob.arrayBuffer()); } finally{ ctx.close&&ctx.close(); }
+  const ab=await blob.arrayBuffer();
+  try{ return await new Promise((ok,bad)=>{ const p=ctx.decodeAudioData(ab,ok,bad); if(p&&p.then) p.then(ok,bad); }); }
+  finally{ ctx.close&&ctx.close(); }
+}
+/* 16 kHz mono 16-bit WAV: the rate Whisper works at, and a container with no missing-duration quirks */
+async function toWav16k(buf){
+  const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext, SR=16000;
+  const off=new OAC(1, Math.ceil(buf.duration*SR), SR);
+  const src=off.createBufferSource(); src.buffer=buf; src.connect(off.destination); src.start();
+  const out=await off.startRendering(); const x=out.getChannelData(0), n=x.length;
+  const ab=new ArrayBuffer(44+n*2), v=new DataView(ab); const w=(o,t)=>{ for(let k=0;k<t.length;k++) v.setUint8(o+k,t.charCodeAt(k)); };
+  w(0,"RIFF"); v.setUint32(4,36+n*2,true); w(8,"WAVE"); w(12,"fmt "); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,SR,true); v.setUint32(28,SR*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); w(36,"data"); v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++){ const s=Math.max(-1,Math.min(1,x[i])); v.setInt16(44+i*2, s<0?s*32768:s*32767, true); }
+  return new Blob([ab],{type:"audio/wav"});
+}
+function sentenceContours(buf, hyp, refWords){
   const src=buf.getChannelData(0), sr=buf.sampleRate, TR=16000, step=sr/TR;
   const x=new Float32Array(Math.floor(src.length/step));
   for(let i=0;i<x.length;i++){ const a=Math.floor(i*step), b=Math.max(a+1,Math.floor((i+1)*step)); let s=0; for(let k=a;k<b;k++) s+=src[k]; x[i]=s/(b-a); }
@@ -788,13 +1031,16 @@ function renderResults(){
      <span class="d num">${a.correct} 正確 / ${a.A} 嘗試 · 錯誤 ${a.errors}</span></div>
    <div class="stat"><span class="label">WCPM</span><span class="v">${Math.round(a.wcpm)}<small>字/分</small></span>
      <div class="normbar" aria-label="與常模比較"><i style="width:${ratio*100}%"></i><b style="left:${(1/1.4)*100}%"></b></div>
-     <span class="d">常模 <span class="num">${pr.normV}</span>（G${p.grade} ${SEASON_ZH[pr.normSeason]} P50）${pr.normSeason!==rules.season?"；G1 無秋季常模，改用春季":""}</span></div>
+     <span class="d">常模 <span class="num">${pr.normV}</span>（G${p.grade} ${SEASON_ZH[pr.normSeason]} P50）${pr.normSeason!==rules.season?"；G1 無秋季常模，改用冬季":""}</span></div>
    <div class="stat"><span class="label">Prosody（NAEP）</span><span class="v">${pr.naep}<small>/ 4</small></span>
      <span class="chip ${naepChip[0]}">${naepChip[1]}</span>
      <span class="d num">MFS 總分 ${mfs} / ${mfsMax}${d.dExpr==null?"（語調無法分析）":""}</span></div>
    <div class="stat"><span class="label">朗讀時間</span><span class="v">${f1(a.elapsed)}<small>秒</small></span>
      <span class="d num">${a.A} / ${words.length} 字 · 起讀延遲 ${a.hyp.length?f1(a.hyp[0].start):"—"}s</span>
-     <span class="ruletag">${rules.timing==="whole"?"讀完整篇":"只計前 60 秒"} · 起點：${rules.t0==="firstWord"?"第一個字":"按下開始"}</span></div>`;
+     <span class="ruletag">${rules.timing==="whole"?"讀完整篇":"只計前 60 秒"} · 起點：${rules.t0==="firstWord"?"第一個字":"按下開始"}</span></div>`+
+   (S.retell ? `<div class="stat"><span class="label">理解（重述）</span><span class="v">${S.retell.level}<small>/ 4</small></span>
+     <span class="chip ${S.retell.level>=3?"good":S.retell.level===2?"mid":"bad"}">${LEVEL_ZH[S.retell.level]}</span>
+     <span class="d num">意義單位 ${S.retell.recall}% · 主旨 ${S.retell.main_idea}/2</span></div>` : "");
 
   /* marked passage */
   const allPause=$("#vAllPause").checked, showPh=$("#vPhrase").checked;
@@ -805,7 +1051,7 @@ function renderResults(){
       const pe=words[i-1].end;
       if(r.hes) h+=`<span class="pz hes" title="停頓 ${r.pause} 秒">停 ${f1(r.pause)}s</span>`;
       else if(!pe && r.pause>=0.5) h+=`<span class="pz mid" title="詞組中停頓">${f1(r.pause)}s</span>`;
-      else if(pe==="sentence" && r.pause<0.25 && a.R[i-1].status!=="omit") h+=`<span class="pz run" title="句末停頓只有 ${r.pause} 秒">連讀</span>`;
+      else if(isPauseReq(pe) && r.pause<0.25 && a.R[i-1].status!=="omit") h+=`<span class="pz run" title="${pe==="major"?"應停頓處":"句末"}停頓只有 ${r.pause} 秒">連讀</span>`;
       else if(allPause && pe && r.pause>=0.15) h+=`<span class="pz ok">${f1(r.pause)}s</span>`;
     }
     if(inRange) r.pre.forEach(pp=>{ const hw=esc(a.hyp[pp.j].word);
@@ -822,7 +1068,7 @@ function renderResults(){
     h+=`<span class="${cls}" title="${esc(tt)}">${said?`<span class="said">${esc(said)}</span>`:""}${esc(w.disp)}${sup?`<sup>${sup}</sup>`:""}</span>`;
     if(inRange && pr.contours[i]){ const c=pr.contours[i]; const ar=c.contour==="fall"?"↘":c.contour==="rise"?"↗":"→";
       h+=`<span class="ctr ${c.ok?"ok":"bad"}" title="音高變化 ${c.f0_change_semitones} 半音；預期${c.exp==="rise"?"上揚":"下降"}">${ar}</span>`; }
-    if(showPh && w.end && w.end!=="sentence") h+=`<span class="slash">/</span>`;
+    if(showPh && w.end && w.end!=="sentence") h+=`<span class="slash">${w.end==="major"?"//":"/"}</span>`;
     h+=" ";
   });
   a.post.forEach(pp=>h+=`<span class="ins">‸${esc(a.hyp[pp.j].word)}</span>`);
@@ -846,13 +1092,22 @@ function renderResults(){
   /* transcript */
   $("#transcript").textContent = a.hyp.map(x=>x.word).join(" ");
   $("#audioBox").hidden=!S.audioURL; if(S.audioURL) $("#audio").src=S.audioURL;
+  const D=S.asr.engine==="simulated"?null:S.diag, dg=$("#diag");
+  if(D){ const f=x=>x==null?"—":x.toFixed(1)+" 秒";
+    const warn=[];
+    if(D.trackEndedAt!=null) warn.push(`麥克風在 ${D.trackEndedAt.toFixed(1)} 秒時被中斷（可能是切換了耳機或裝置）。`);
+    if(D.decodedSec!=null && D.decodedSec < D.timerSec*0.8) warn.push("錄到的音訊比按鈕計時短很多，問題出在錄音階段。");
+    else if(D.whisperSec!=null && D.decodedSec!=null && D.whisperSec < D.decodedSec*0.8) warn.push("Whisper 只處理了部分錄音，問題出在上傳或辨識階段。");
+    dg.innerHTML=`錄音檢查：計時 ${f(D.timerSec)} · 錄到的音訊 ${f(D.decodedSec)} · Whisper 收到 ${f(D.whisperSec)} · 辨識出 ${D.words} 個字 · 上傳 ${D.uploaded==="wav"?"WAV":"原始檔 "+esc(D.mime)} ${D.uploadKB} KB`+
+      (warn.length?`<br><span style="color:var(--omit)">${warn.map(esc).join(" ")}</span>`:"");
+    dg.hidden=false; } else dg.hidden=true;
 
   /* prosody dims */
   const pip=n=>`<div class="pips">${[1,2,3,4].map(k=>`<i class="${k<=n?"on":""}"></i>`).join("")}</div>`;
   const dim=(name,en,n,ev)=>`<div class="dim"><div class="head"><span>${name} <span class="muted" style="font-size:12px">${en}</span></span><span class="num">${n==null?"—":n+"/4"}</span></div>${pip(n||0)}<p class="ev">${ev}</p></div>`;
   $("#dims").innerHTML =
     dim("語調與表情","Expression",d.dExpr, pr.cTot ? `句末音高符合預期 ${pr.cOk}/${pr.cTot} 句（陳述句下降、疑問句上揚）。` : "錄音中找不到足夠清楚的句末音高，這一項不計分。")+
-    dim("斷句","Phrasing",d.dPhr,`句末有停頓 ${pr.sPaused}/${pr.sEnds} 處；詞組中停頓 ${pr.mid} 次（每百字 ${f1(pr.midPer100)}）。`)+
+    dim("斷句","Phrasing",d.dPhr,`應停頓處（句末與 //）有停頓 ${pr.sPaused}/${pr.sEnds} 處；詞組中停頓 ${pr.mid} 次（每百字 ${f1(pr.midPer100)}）。`)+
     dim("順暢度","Smoothness",d.dSmo,`重複 ${a.rep}、自我修正 ${a.sc}、長停頓 ${a.hes}，每百字 ${f1(pr.smoothPer100)} 次。`)+
     dim("速度","Pace",d.dPace,`WCPM 為常模的 ${Math.round(pr.paceRatio*100)}%。`);
   const NL={4:"以較大、有意義的詞組朗讀，語調能呈現文意",3:"主要以三到四字的詞組朗讀，大致保留句法",2:"主要兩字一組，斷句常與句法不合",1:"主要逐字朗讀"};
@@ -865,6 +1120,7 @@ function renderResults(){
   if(rules.timing==="oneMin" && a.A===words.length && a.elapsed<60) warns.push("60 秒內已讀完全文，WCPM 依實際秒數換算。");
   $("#normWarn").innerHTML=warns.map(esc).join("<br><br>"); $("#normWarn").hidden=!warns.length;
 
+  renderRetell(p);
   S.last={p,a};
   $("#json").textContent = `{\n  "passage_id": ${p.id},\n  "engine": "${S.asr.engine}",\n  "words": [\n`+
     S.asr.words.map(x=>"    "+JSON.stringify(x)).join(",\n")+`\n  ],\n  "pitch": [\n`+
@@ -873,8 +1129,8 @@ function renderResults(){
 }
 
 /* ---------- Student roster (Google Sheets via Apps Script) ---------- */
-/* 把 Apps Script 部署後得到的網址（結尾是 /exec）貼在下面這一行 */
-const SHEET_API = "https://script.google.com/macros/s/AKfycbz7f6PTxxSa1HUogCBuaSbdRaRBLwYxzo7dcJZ-lvtSD4qhH-rJ264J-bH6hRKnrKUq/exec";
+/* Apps Script 網址放在 config.js，更新 index.html 時就不用再改這裡 */
+const SHEET_API = (window.ORF_CONFIG && window.ORF_CONFIG.SHEET_API) || "";
 
 const ST={student:null};
 const API_OK = /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(SHEET_API);
@@ -890,6 +1146,13 @@ async function api(params, body){
   return r.json();
 }
 
+/* 文章：試算表有「文章」分頁就用它，否則用內建的六篇 */
+const passagesReady = API_OK ? api({action:"passages"}).then(d=>{
+  const list=(d && d.ok && Array.isArray(d.passages)) ? d.passages.filter(p=>p && p.text && parse(p.text).length) : [];
+  if(list.length){ PASSAGES=list.map(p=>({id:String(p.id), grade:Math.min(6,Math.max(1,+p.grade||1)), title:String(p.title||"（未命名）"), text:String(p.text), ideas:String(p.ideas||"")}));
+    PASSAGES.sort((a,b)=>a.grade-b.grade); renderGrid(); }
+}).catch(()=>{}) : Promise.resolve();
+
 if(API_OK){ $("#tokenInput").disabled=false; $("#tokenBtn").disabled=false; tokenMsg(""); }
 else tokenMsg("尚未設定學生名單的連線網址（SHEET_API），請直接選文練習。",true);
 
@@ -898,14 +1161,17 @@ $("#tokenForm").addEventListener("submit",async e=>{
   const tok=normTok($("#tokenInput").value); if(!tok){ tokenMsg("請輸入代碼。",true); return; }
   $("#tokenBtn").disabled=true; tokenMsg("查詢中…");
   try{
+    await passagesReady;
     const d=await api({action:"lookup",token:tok});
     if(!d.ok){ tokenMsg(`找不到代碼 ${tok}，請確認後再輸入，或向老師詢問。`,true); return; }
     const grade=Math.min(6,Math.max(1,+d.grade||1));
+    const pass=PASSAGES.find(p=>p.grade===grade);
+    if(!pass){ tokenMsg(`目前沒有 G${grade} 的文章，請告訴老師。`,true); return; }
     ST.student={token:tok,name:String(d.name||"（未命名）"),grade};
     $("#stName").textContent=ST.student.name; $("#stGrade").textContent="G"+grade; $("#studentBar").hidden=false;
     $("#tokenInput").value=""; tokenMsg("");
     document.body.classList.add("stmode");
-    openPassage(PASSAGES.find(p=>p.grade===grade).id);
+    openPassage(pass.id);
   }catch(err){ tokenMsg("暫時無法連線學生名單，請稍後再試。",true); }
   finally{ $("#tokenBtn").disabled=false; }
 });
@@ -913,15 +1179,23 @@ $("#logoutBtn").onclick=()=>{ ST.student=null; $("#studentBar").hidden=true; doc
 
 async function saveResult(res){
   const m=$("#saveMsg"); m.hidden=false; m.className="savemsg"; m.textContent="正在寫入成績…";
-  const a=res.a, rules=getRules();
-  const body={token:ST.student.token, accuracy:+(a.accuracy*100).toFixed(1), wcpm:Math.round(a.wcpm), prosody:a.pros.naep,
-    mfs:(a.pros.dims.dExpr??0)+a.pros.dims.dPhr+a.pros.dims.dSmo+a.pros.dims.dPace,
-    passage:res.p.id, timing:rules.timing, source: S.asr.engine==="simulated" ? "simulated:"+S.profile : S.asr.engine};
+  const a=res.a, pr=a.pros;
+  const body={rid:(crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random().toString(36).slice(2)),
+    token:ST.student.token, passage:res.p.id,
+    accuracy:+(a.accuracy*100).toFixed(1), wcpm:Math.round(a.wcpm), prosody:pr.naep,
+    mfs:(pr.dims.dExpr??0)+pr.dims.dPhr+pr.dims.dSmo+pr.dims.dPace, mfs_max:pr.dims.dExpr==null?12:16,
+    words_attempted:a.A, errors:a.errors, seconds:+a.elapsed.toFixed(1),
+    norm:`${pr.normSeason} ${pr.normV}`,
+    retell: S.retell ? {level:S.retell.level, recall:S.retell.recall, units:`${S.retell.full}+${S.retell.partial}/${S.retell.total}`,
+      main_idea:S.retell.main_idea, sequence:S.retell.sequence, misconceptions:S.retell.misconceptions||[], words:S.retell.words,
+      verbatim:!!S.retell.verbatim, note_zh:S.retell.note_zh||"", transcript:S.retell.transcript||""} : null,
+    retell_status: S.retellStatus || "",
+    source: S.asr.engine==="simulated" ? "simulated:"+S.profile : S.asr.engine};
   for(let k=0;k<2;k++){
     try{
       const d=await api({action:"save"},body);
       if(!d.ok) throw new Error(d.error||"save");
-      m.textContent=`已寫入 ${ST.student.name} 的成績：Accuracy ${body.accuracy}%、WCPM ${body.wcpm}、Prosody ${body.prosody}/4。`; return;
+      m.textContent=`已記錄 ${ST.student.name} 第 ${d.attempt||"?"} 次測驗：Accuracy ${body.accuracy}%、WCPM ${body.wcpm}、Prosody ${body.prosody}/4${body.retell?`、理解 ${body.retell.level}/4`:""}。`; return;
     }catch(err){
       if(k===0){ await new Promise(r=>setTimeout(r,800)); continue; }
       m.className="savemsg err"; m.textContent="成績沒有寫入成功，請再測一次或告訴老師。"; return;
