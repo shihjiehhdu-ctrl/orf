@@ -4,7 +4,7 @@
 // 3. 分數由程式依固定規則計算，不讓模型直接給總分
 //
 // 環境變數（除了 OPENAI_API_KEY、SHEET_API、ALLOW_PRACTICE 之外，以下都可不設）：
-//   RETELL_TRANSCRIBE_MODEL  轉錄模型，預設 gpt-4o-transcribe
+//   RETELL_TRANSCRIBE_MODEL  轉錄模型，預設 gpt-transcribe（OpenAI 建議的新模型；舊的 gpt-4o-transcribe 將於 2027/2/26 移除）
 //   RETELL_SCORE_MODEL       評分模型，預設 gpt-6-luna
 //   RETELL_REASONING         評分模型的 reasoning effort，預設 low
 
@@ -125,8 +125,10 @@ export default async (req) => {
   // 1. 轉錄
   const fd = new FormData();
   fd.append("file", audio, audio.name || "retell.wav");
-  fd.append("model", env("RETELL_TRANSCRIBE_MODEL") || "gpt-4o-transcribe");
-  fd.append("language", "en");
+  const tModel = env("RETELL_TRANSCRIBE_MODEL") || "gpt-transcribe";
+  fd.append("model", tModel);
+  // gpt-transcribe 用 languages（複數）；舊模型用 language。兩者不能同時送，重述是英文，舊模型才加語言提示
+  if (!/^gpt-transcribe|^gpt-live-transcribe/.test(tModel)) fd.append("language", "en");
   fd.append("response_format", "json");
   let transcript = "";
   try {
