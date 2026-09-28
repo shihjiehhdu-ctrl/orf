@@ -196,7 +196,27 @@ footer{font-size:12.5px;color:var(--muted);line-height:1.6}
 .savemsg{font-size:14px;padding:10px 14px;border-radius:9px;background:var(--sc-bg);color:var(--sc)}
 .savemsg.err{background:var(--omit-bg);color:var(--omit)}
 #rosterTbl td.none{color:var(--muted)}
+.verdict{border-radius:12px;padding:16px 20px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:6px;border-left-width:5px}
+.verdict.good{border-left-color:var(--sc)} .verdict.mid{border-left-color:var(--warn)} .verdict.bad{border-left-color:var(--omit)}
+.verdict .vhead{display:flex;align-items:baseline;gap:12px}
+.verdict strong{font-size:22px;font-weight:700}
+.verdict.good strong{color:var(--sc)} .verdict.mid strong{color:var(--warn)} .verdict.bad strong{color:var(--omit)}
+.verdict .vwhy{font-size:14.5px} .verdict .vnext{font-size:14px;color:var(--muted);max-width:70ch}
+.vsteps{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:4px;font-size:12px}
+.vsteps li{padding:2px 10px;border-radius:999px;background:var(--sunk);color:var(--muted)}
+.vsteps li.arr{background:none;padding:2px 0;color:var(--muted)}
+.vsteps li.on{background:var(--accent);color:var(--accent-ink)}
 .teacherpanel{display:none}
+.reporthead{display:none}
+body.reportmode .reporthead{display:block}
+body.reportmode .proto, body.reportmode #steps, body.reportmode #studentBar, body.reportmode #saveMsg, body.reportmode #againBtn,
+body.reportmode #newSimBtn, body.reportmode #otherBtn, body.reportmode .ruleCtl, body.reportmode details, body.reportmode #diag{display:none!important}
+body.reportmode .rulesFixed{display:block}
+body.reportmode #audioBox > p.note{display:none}
+body.reportmode header.top .sub{display:none}
+.sharebox{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.linkrow{display:flex;gap:8px;max-width:640px}
+.linkrow input{flex:1;min-width:0;border:1px solid var(--line);background:var(--ground);border-radius:8px;padding:8px 10px;font:13px var(--mono);color:inherit}
 body.reviewmode .teacherpanel{display:block}
 body.reviewmode .proto, body.reviewmode #steps, body.reviewmode #studentBar, body.reviewmode #saveMsg, body.reviewmode s3 .actions,
 body.reviewmode #againBtn, body.reviewmode #newSimBtn, body.reviewmode #otherBtn, body.reviewmode .ruleCtl{display:none!important}
@@ -392,7 +412,34 @@ body.stmode .ruleCtl{display:none}
         <label class="wide">備註<textarea id="tpNote" rows="2" placeholder="例如：AI 漏抓的錯誤、語調判讀是否正確"></textarea></label>
       </div>
       <div class="actions" style="margin-top:10px;align-items:center"><button class="btn primary" id="tpSave" type="button">儲存老師評分</button><span class="note" id="tpMsg" role="status"></span></div>
+      <div class="sharebox">
+        <h3>分享報告</h3>
+        <p class="note">產生一個不需密碼的連結，可以傳給家長或其他老師。報告包含文章、錄音與比對結果，不含學生代碼和老師評分。</p>
+        <p class="note" id="tpEmailInfo"></p>
+        <div class="actions" style="align-items:center">
+          <button class="btn" id="tpShare" type="button">建立分享連結</button>
+          <button class="btn primary" id="tpSend" type="button">產生報告並直接寄出</button>
+          <button class="linkbtn" id="tpUnshare" type="button">停用這筆測驗的分享連結</button>
+        </div>
+        <div class="linkrow" id="tpLinkRow" hidden>
+          <label for="tpLink" style="position:absolute;left:-9999px">分享連結</label>
+          <input id="tpLink" type="text" readonly>
+          <button class="btn primary" id="tpCopy" type="button">複製</button>
+        </div>
+        <p class="note" id="tpShareMsg" role="status"></p>
+      </div>
     </div>
+    <div class="panel reporthead" id="reportHead">
+      <p class="label">朗讀測驗報告</p>
+      <h2 id="rpName" style="margin-top:4px;font-size:22px"></h2>
+      <p class="note" id="rpMeta" style="margin-top:4px"></p>
+      <h3 style="margin-top:18px">原始文章：<span id="rpTitle" style="font-family:var(--read)"></span></h3>
+      <p class="reading" id="rpText" style="margin-top:8px"></p>
+      <h3 style="margin-top:18px">朗讀錄音</h3>
+      <div id="rpAudioSlot" style="margin-top:6px"></div>
+      <p class="note" id="rpAudioNote"></p>
+    </div>
+    <div class="verdict" id="verdict"></div>
     <div class="stats" id="stats"></div>
 
     <div class="cols">
@@ -513,6 +560,8 @@ body.stmode .ruleCtl{display:none}
     <div class="tblwrap" style="margin-top:10px"><table class="tbl" id="rvTable"></table></div>
   </section>
 
+  <p class="panel note" id="reportMsg" hidden>正在開啟報告…</p>
+
   <footer>
     計分公式：Accuracy = (嘗試字數 − 錯誤數) ÷ 嘗試字數；WCPM = (嘗試字數 − 錯誤數) ÷ 朗讀秒數 × 60。
     錯誤包含省略、替換，以及（依規則）停頓超過 3 秒與插入字。Prosody 分數由停頓位置、句末音高變化、重複與修正次數、速度推算，屬於自動估計，上線前需與人工評分比對驗證。
@@ -523,12 +572,12 @@ body.stmode .ruleCtl{display:none}
 <script>
 /* ---------- Passages (“/” marks pre-annotated phrase boundaries) ---------- */
 const DEFAULT_PASSAGES = [
- {id:"G1-01", grade:1, title:"The Big Red Ball", text:"Sam has a big red ball. / He kicks it / to his friend Pat. / Pat kicks it back. / The ball goes up / and lands in a tree. / “Oh no!” / says Sam. / Pat gets a long stick. / She pokes the ball. / It falls down / on Sam’s head. / Sam and Pat laugh / and play again.", ideas:"* Sam and Pat play with a ball, it gets stuck in a tree, and they get it down.\nSam has a big red ball.\nSam and Pat kick the ball to each other.\nThe ball goes up and lands in a tree.\nPat gets a long stick and pokes the ball.\nThe ball falls down on Sam's head.\nThey laugh and play again."},
- {id:"G2-01", grade:2, title:"The Class Garden", text:"Miss Lee’s class planted a garden / behind the school. / First, / they dug small holes / in the dirt. / Next, / they dropped in seeds / for beans, carrots, and sunflowers. / Every day, / two students watered the garden. / After a week, / tiny green plants / came up. / The sunflowers grew / the fastest of all. / By summer, / they were taller than Miss Lee! / The class picked the beans / and shared them at lunch.", ideas:"* Miss Lee's class planted a garden and watched it grow.\nThe class planted a garden behind the school.\nThey dug holes and planted seeds for beans, carrots and sunflowers.\nTwo students watered the garden every day.\nAfter a week, small plants came up.\nThe sunflowers grew the fastest and became taller than the teacher.\nThe class picked the beans and shared them at lunch."},
- {id:"G3-01", grade:3, title:"The Lemonade Stand", text:"On a hot Saturday, / Jada and her brother / decided to sell lemonade. / They squeezed twenty lemons, / added water and sugar, / and made a big sign. / At first, / nobody stopped. / Then Jada had an idea. / She moved the stand / to the corner near the park, / where many people walked their dogs. / Soon there was a line! / By the afternoon, / they had sold every cup / and earned eighteen dollars. / They gave half the money / to the animal shelter / and saved the rest.", ideas:"* Jada and her brother ran a lemonade stand, moved it to a busier place, and sold everything.\nOn a hot Saturday they decided to sell lemonade.\nThey made lemonade from lemons, water and sugar, and made a sign.\nAt first nobody stopped.\nJada moved the stand to a corner near the park where many people walked.\nSoon there was a line, and they sold every cup.\nThey earned eighteen dollars.\nThey gave half to the animal shelter and saved the rest."},
- {id:"G4-01", grade:4, title:"The Science Fair", text:"For the science fair, / Priya wanted to find out / which kind of ball bounces highest. / She collected a tennis ball, / a rubber ball, / a basketball, / and a ping-pong ball. / She dropped each one / from the top of a ladder / and asked her friend / to mark how high it bounced / on a tape measure. / To be fair, / she dropped every ball five times / and wrote down the average. / Everyone guessed / the basketball would win, / but the small rubber ball / bounced the highest by far. / Priya’s poster explained / why her results surprised her, / and she won second place.", ideas:"* Priya did a science fair experiment to find which ball bounces highest, and the result surprised everyone.\nPriya wanted to find out which kind of ball bounces highest.\nShe tested a tennis ball, a rubber ball, a basketball and a ping-pong ball.\nShe dropped each ball from a ladder and her friend measured the bounce.\nTo be fair, she dropped each ball five times and used the average.\nEveryone expected the basketball to win, but the rubber ball bounced highest.\nHer poster explained her results, and she won second place."},
- {id:"G5-01", grade:5, title:"Volcanoes", text:"Deep beneath the Earth’s surface, / it is so hot / that some rock melts / into a thick liquid called magma. / Because magma is lighter / than the solid rock around it, / it slowly rises / and collects in underground chambers. / When enough pressure builds up, / the magma forces its way / through cracks in the crust / and bursts out of a volcano. / Once it reaches the surface, / it is called lava. / Some volcanoes explode violently, / throwing ash and rock / high into the sky, / while others let lava flow out / gently like a river. / Although eruptions can be dangerous, / volcanoes also create new land. / The Hawaiian Islands, / for example, / were formed by volcanoes / rising from the ocean floor / over millions of years.", ideas:"* Volcanoes form when melted rock from deep underground rises and breaks through the surface, and they can also build new land.\nDeep underground it is so hot that rock melts into magma.\nMagma is lighter than solid rock, so it rises and collects underground.\nPressure pushes magma through cracks and out of a volcano.\nAt the surface it is called lava.\nSome volcanoes explode with ash and rock; others let lava flow gently.\nEruptions are dangerous but also create new land.\nThe Hawaiian Islands were formed by volcanoes over millions of years."},
- {id:"G6-01", grade:6, title:"The Power of Sleep", text:"Scientists once believed / that the brain simply switched off / during sleep, / but we now know / that it stays remarkably busy. / While you sleep, / your brain sorts through / the information you collected during the day, / deciding which memories to keep / and which to throw away. / This is one reason / students who sleep well / before a test / often remember more / than those who stay up late studying. / Sleep also gives the body / a chance to repair muscles / and strengthen the immune system, / which helps fight off illness. / Most children and teenagers / need between nine and eleven hours / of sleep each night, / yet many get far less. / Bright screens are partly to blame, / because their light / tricks the brain into thinking / it is still daytime, / making it harder to fall asleep. / Turning off devices an hour before bed / can make a real difference.", ideas:"* Sleep is an active and important time when the brain and body do important work.\nScientists used to think the brain switched off during sleep, but it stays busy.\nDuring sleep the brain sorts the day's information and decides which memories to keep.\nStudents who sleep well before a test often remember more.\nSleep helps the body repair muscles and strengthens the immune system.\nChildren and teens need nine to eleven hours of sleep, but many get less.\nScreen light tricks the brain into thinking it is daytime, making sleep harder.\nTurning off devices an hour before bed can help."}
+ {id:"G1-01", grade:1, title:"The Big Red Ball", text:"Sam has a big red ball. / He kicks it / to his friend Pat. / Pat kicks it back. / The ball goes up / and lands in a tree. / “Oh no!” / says Sam. / Pat gets a long stick. / She pokes the ball. / It falls down / on Sam’s head. / Sam and Pat laugh / and play again.", ideas:"Sam and Pat play with a ball, it gets stuck in a tree, and they get it down.\nSam has a big red ball.\nSam and Pat kick the ball to each other.\nThe ball goes up and lands in a tree.\nPat gets a long stick and pokes the ball.\nThe ball falls down on Sam's head.\nThey laugh and play again."},
+ {id:"G2-01", grade:2, title:"The Class Garden", text:"Miss Lee’s class planted a garden / behind the school. / First, / they dug small holes / in the dirt. / Next, / they dropped in seeds / for beans, carrots, and sunflowers. / Every day, / two students watered the garden. / After a week, / tiny green plants / came up. / The sunflowers grew / the fastest of all. / By summer, / they were taller than Miss Lee! / The class picked the beans / and shared them at lunch.", ideas:"Miss Lee's class planted a garden and watched it grow.\nThe class planted a garden behind the school.\nThey dug holes and planted seeds for beans, carrots and sunflowers.\nTwo students watered the garden every day.\nAfter a week, small plants came up.\nThe sunflowers grew the fastest and became taller than the teacher.\nThe class picked the beans and shared them at lunch."},
+ {id:"G3-01", grade:3, title:"The Lemonade Stand", text:"On a hot Saturday, / Jada and her brother / decided to sell lemonade. / They squeezed twenty lemons, / added water and sugar, / and made a big sign. / At first, / nobody stopped. / Then Jada had an idea. / She moved the stand / to the corner near the park, / where many people walked their dogs. / Soon there was a line! / By the afternoon, / they had sold every cup / and earned eighteen dollars. / They gave half the money / to the animal shelter / and saved the rest.", ideas:"Jada and her brother ran a lemonade stand, moved it to a busier place, and sold everything.\nOn a hot Saturday they decided to sell lemonade.\nThey made lemonade from lemons, water and sugar, and made a sign.\nAt first nobody stopped.\nJada moved the stand to a corner near the park where many people walked.\nSoon there was a line, and they sold every cup.\nThey earned eighteen dollars.\nThey gave half to the animal shelter and saved the rest."},
+ {id:"G4-01", grade:4, title:"The Science Fair", text:"For the science fair, / Priya wanted to find out / which kind of ball bounces highest. / She collected a tennis ball, / a rubber ball, / a basketball, / and a ping-pong ball. / She dropped each one / from the top of a ladder / and asked her friend / to mark how high it bounced / on a tape measure. / To be fair, / she dropped every ball five times / and wrote down the average. / Everyone guessed / the basketball would win, / but the small rubber ball / bounced the highest by far. / Priya’s poster explained / why her results surprised her, / and she won second place.", ideas:"Priya did a science fair experiment to find which ball bounces highest, and the result surprised everyone.\nPriya wanted to find out which kind of ball bounces highest.\nShe tested a tennis ball, a rubber ball, a basketball and a ping-pong ball.\nShe dropped each ball from a ladder and her friend measured the bounce.\nTo be fair, she dropped each ball five times and used the average.\nEveryone expected the basketball to win, but the rubber ball bounced highest.\nHer poster explained her results, and she won second place."},
+ {id:"G5-01", grade:5, title:"Volcanoes", text:"Deep beneath the Earth’s surface, / it is so hot / that some rock melts / into a thick liquid called magma. / Because magma is lighter / than the solid rock around it, / it slowly rises / and collects in underground chambers. / When enough pressure builds up, / the magma forces its way / through cracks in the crust / and bursts out of a volcano. / Once it reaches the surface, / it is called lava. / Some volcanoes explode violently, / throwing ash and rock / high into the sky, / while others let lava flow out / gently like a river. / Although eruptions can be dangerous, / volcanoes also create new land. / The Hawaiian Islands, / for example, / were formed by volcanoes / rising from the ocean floor / over millions of years.", ideas:"Volcanoes form when melted rock from deep underground rises and breaks through the surface, and they can also build new land.\nDeep underground it is so hot that rock melts into magma.\nMagma is lighter than solid rock, so it rises and collects underground.\nPressure pushes magma through cracks and out of a volcano.\nAt the surface it is called lava.\nSome volcanoes explode with ash and rock; others let lava flow gently.\nEruptions are dangerous but also create new land.\nThe Hawaiian Islands were formed by volcanoes over millions of years."},
+ {id:"G6-01", grade:6, title:"The Power of Sleep", text:"Scientists once believed / that the brain simply switched off / during sleep, / but we now know / that it stays remarkably busy. / While you sleep, / your brain sorts through / the information you collected during the day, / deciding which memories to keep / and which to throw away. / This is one reason / students who sleep well / before a test / often remember more / than those who stay up late studying. / Sleep also gives the body / a chance to repair muscles / and strengthen the immune system, / which helps fight off illness. / Most children and teenagers / need between nine and eleven hours / of sleep each night, / yet many get far less. / Bright screens are partly to blame, / because their light / tricks the brain into thinking / it is still daytime, / making it harder to fall asleep. / Turning off devices an hour before bed / can make a real difference.", ideas:"Sleep is an active and important time when the brain and body do important work.\nScientists used to think the brain switched off during sleep, but it stays busy.\nDuring sleep the brain sorts the day's information and decides which memories to keep.\nStudents who sleep well before a test often remember more.\nSleep helps the body repair muscles and strengthens the immune system.\nChildren and teens need nine to eleven hours of sleep, but many get less.\nScreen light tricks the brain into thinking it is daytime, making sleep harder.\nTurning off devices an hour before bed can help."}
 ];
 /* Hasbrouck & Tindal (2017), 50th percentile WCPM */
 let PASSAGES = DEFAULT_PASSAGES;
@@ -864,6 +913,26 @@ function showResults(){
   if(ST.student) saveResult(res); else $("#saveMsg").hidden=true;
 }
 
+/* ---------- Overall verdict: reader profile (checked in order; the first gap found is the one to teach first) ---------- */
+const PROFILE_RULES={accuracy:0.90, wcpmRatio:0.75, prosody:2, retell:2};
+function readerProfile(a, pr, retell){
+  const acc=a.accuracy, ratio=pr.normV? a.wcpm/pr.normV : null, pros=pr.naep, rl=retell? retell.level : null;
+  const accTxt=`正確率 ${(acc*100).toFixed(1)}%`;
+  if(acc < PROFILE_RULES.accuracy) return {key:"decode", label:"解碼待加強", cls:"bad",
+    why:`${accTxt}，低於 90%。`, next:"先加強字母拼讀（phonics）與常見字的辨識。這篇文章對他偏難，平時練習可以改用程度較低的文章。"};
+  const slow = ratio!=null && ratio < PROFILE_RULES.wcpmRatio, flat = pros <= PROFILE_RULES.prosody;
+  if(slow || flat){
+    const parts=[]; if(slow) parts.push(`WCPM ${Math.round(a.wcpm)} 只有常模的 ${Math.round(ratio*100)}%`); if(flat) parts.push(`朗讀韻律 ${pros}/4`);
+    return {key:"fluency", label:"流暢度待加強", cls:"mid",
+      why:`${accTxt} 已達標，但${parts.join("、")}。`, next:"字大多認得，但讀得不夠順。可以用重複朗讀、老師示範後跟讀、依詞組斷句朗讀來練習速度與語調。"};
+  }
+  if(rl!=null && rl <= PROFILE_RULES.retell) return {key:"comprehension", label:"理解待加強", cls:"mid",
+    why:`正確率與流暢度都達標，但重述理解只有 ${rl}/4。`, next:"讀得順但沒有真正讀懂。可以練習讀前預測、讀到一半停下來問問題，讀完後用自己的話說出重點。"};
+  return {key:"ok", label:"達標", cls:"good",
+    why: rl!=null ? "正確率、速度、韻律與理解都達標。" : "正確率、速度與韻律都達標（這篇文章沒有評理解）。",
+    next:"可以逐步提高文章難度。"};
+}
+
 /* ---------- Retell ---------- */
 const RETELL_API="/api/retell", RETELL_MAX=60;
 function parseIdeas(s){ return String(s||"").split(/\r?\n/).map(l=>l.trim()).filter(Boolean)
@@ -874,9 +943,9 @@ function retellScore(units, ideas, j){
   ideas.forEach((_,i)=>{ const st=units[i]?units[i].status:"none"; got+=pts[st]; if(st==="full") full++; if(st==="partial") partial++; });
   const recall=ideas.length?got/ideas.length:0, mis=(j.misconceptions||[]).length;
   let level=1;
-  if(recall>=0.7 && j.main_idea===2 && mis===0) level=4;
-  else if(recall>=0.5 && j.main_idea>=1) level=3;
-  else if(recall>=0.25 || j.main_idea>=1) level=2;
+  if(recall>=0.7 && mis===0) level=4;
+  else if(recall>=0.4) level=3;
+  else if(recall>=0.25) level=2;
   return {recall:Math.round(recall*1000)/10, full, partial, total:ideas.length, level};
 }
 function simulateRetell(p){
@@ -885,8 +954,7 @@ function simulateRetell(p){
   const units=ideas.map((u,i)=>{ const r=R(); const st=r<cov?"full":r<cov+0.15?"partial":"none";
     return {n:i+1,status:st,evidence:st==="none"?"":u.text.split(/[,;(]/)[0].toLowerCase()}; });
   const said=units.filter(u=>u.status!=="none").map(u=>u.evidence);
-  const j={main_idea: units[ideas.findIndex(u=>u.main)]?.status==="full"?2:said.length?1:0,
-    sequence: said.length<2?null:(R()<0.7?2:1), misconceptions: R()<0.2?["（模擬）把事件的順序或原因說反了"]:[], verbatim:false,
+  const j={    sequence: said.length<2?null:(R()<0.7?2:1), misconceptions: R()<0.2?["（模擬）把事件的順序或原因說反了"]:[], verbatim:false,
     note_zh:"（模擬結果）這是程式產生的示範資料，不是 AI 的實際評分。"};
   const transcript = said.length ? "Um, "+said.join(". And ")+"." : "";
   return {simulated:true, transcript, words:transcript.split(/\s+/).filter(Boolean).length, units, ...j, ...retellScore(units,ideas,j)};
@@ -970,12 +1038,12 @@ function renderRetell(p){
   const ideas=parseIdeas(p.ideas), IC={full:"✓",partial:"△",none:"–"}, ST_ZH={full:"有說到",partial:"部分說到",none:"沒說到"};
   const seq = R.sequence==null ? "不適用" : `${R.sequence}/2`;
   box.innerHTML=`<h2>重述理解${R.simulated?' <span class="chip mid">模擬</span>':""}</h2>
-    <div class="rsum"><span>主旨 <b>${R.main_idea}/2</b></span><span>順序 <b>${seq}</b></span>
+    <div class="rsum"><span>順序 <b>${seq}</b></span>
       <span>意義單位 <b>${R.full} 完整、${R.partial} 部分 / 共 ${R.total}</b></span><span>重述字數 <b>${R.words}</b></span>
       ${R.verbatim?'<span style="color:var(--warn)">大量逐字重複原文</span>':""}</div>
     ${R.note_zh?`<p style="margin-top:10px;font-size:14px">${esc(R.note_zh)}</p>`:""}
     <ul class="units">${ideas.map((u,i)=>{ const x=R.units[i]||{status:"none",evidence:""};
-      return `<li class="${x.status}" title="${ST_ZH[x.status]}"><span class="ic">${IC[x.status]}</span><span class="tx${u.main?" main":""}">${u.main?"主旨：":""}${esc(u.text)}${x.evidence?`<span class="ev">“${esc(x.evidence)}”</span>`:""}</span></li>`; }).join("")}</ul>
+      return `<li class="${x.status}" title="${ST_ZH[x.status]}"><span class="ic">${IC[x.status]}</span><span class="tx">${esc(u.text)}${x.evidence?`<span class="ev">“${esc(x.evidence)}”</span>`:""}</span></li>`; }).join("")}</ul>
     ${(R.misconceptions||[]).length?`<h3 style="margin-top:14px">誤解</h3><ul class="misc">${R.misconceptions.map(m=>`<li>${esc(m)}</li>`).join("")}</ul>`:""}
     ${S.rURL?`<h3 style="margin-top:14px">重述錄音</h3><audio controls src="${S.rURL}" style="margin-top:6px"></audio>`:""}
     <h3 style="margin-top:14px">重述轉寫</h3><p class="reading" style="font-size:16px;line-height:1.7;margin-top:4px">${esc(R.transcript||"（沒有辨識到內容）")}</p>`;
@@ -1073,6 +1141,12 @@ function renderResults(){
   const ratio=Math.min(1.4,a.wcpm/pr.normV)/1.4;
   const naepChip = pr.naep>=3?["good","流暢範圍"]:["mid","未達流暢"];
   const d=pr.dims, mfs=(d.dExpr??0)+d.dPhr+d.dSmo+d.dPace, mfsMax=d.dExpr==null?12:16;
+  const prof=readerProfile(a, pr, S.retell); S.lastProfile=prof;
+  const STEPS=["decode","fluency","comprehension","ok"], SNAME={decode:"解碼",fluency:"流暢度",comprehension:"理解",ok:"達標"};
+  $("#verdict").className="verdict "+prof.cls;
+  $("#verdict").innerHTML=`<div class="vhead"><span class="label">總評</span><strong>${prof.label}</strong></div>
+    <p class="vwhy">${esc(prof.why)}</p><p class="vnext">${esc(prof.next)}</p>
+    <ol class="vsteps" aria-label="判斷順序">${STEPS.map(k=>`<li class="${k===prof.key?"on":""}">${SNAME[k]}</li>`).join('<li class="arr" aria-hidden="true">→</li>')}</ol>`;
   $("#stats").innerHTML=`
    <div class="stat"><span class="label">Accuracy</span><span class="v">${pct(a.accuracy)}<small>%</small></span>
      <span class="chip ${accBand[0]}">${accBand[1]}</span>
@@ -1088,7 +1162,7 @@ function renderResults(){
      <span class="ruletag">${rules.timing==="whole"?"讀完整篇":"只計前 60 秒"} · 起點：${rules.t0==="firstWord"?"第一個字":"按下開始"}</span></div>`+
    (S.retell ? `<div class="stat"><span class="label">理解（重述）</span><span class="v">${S.retell.level}<small>/ 4</small></span>
      <span class="chip ${S.retell.level>=3?"good":S.retell.level===2?"mid":"bad"}">${LEVEL_ZH[S.retell.level]}</span>
-     <span class="d num">意義單位 ${S.retell.recall}% · 主旨 ${S.retell.main_idea}/2</span></div>` : "");
+     <span class="d num">意義單位 ${S.retell.recall}%（${S.retell.full} 完整、${S.retell.partial} 部分 / ${S.retell.total}）</span></div>` : "");
 
   /* marked passage */
   const allPause=$("#vAllPause").checked, showPh=$("#vPhrase").checked;
@@ -1234,9 +1308,9 @@ async function saveResult(res){
     accuracy:+(a.accuracy*100).toFixed(1), wcpm:Math.round(a.wcpm), prosody:pr.naep,
     mfs:(pr.dims.dExpr??0)+pr.dims.dPhr+pr.dims.dSmo+pr.dims.dPace, mfs_max:pr.dims.dExpr==null?12:16,
     words_attempted:a.A, errors:a.errors, seconds:+a.elapsed.toFixed(1),
-    norm:`${pr.normSeason} ${pr.normV}`,
+    norm:`${pr.normSeason} ${pr.normV}`, profile:(S.lastProfile||{}).label||"",
     retell: S.retell ? {level:S.retell.level, recall:S.retell.recall, units:`${S.retell.full}+${S.retell.partial}/${S.retell.total}`,
-      main_idea:S.retell.main_idea, sequence:S.retell.sequence, misconceptions:S.retell.misconceptions||[], words:S.retell.words,
+      sequence:S.retell.sequence, misconceptions:S.retell.misconceptions||[], words:S.retell.words,
       verbatim:!!S.retell.verbatim, note_zh:S.retell.note_zh||"", transcript:S.retell.transcript||""} : null,
     retell_status: S.retellStatus || "",
     source: S.asr.engine==="simulated" ? "simulated:"+S.profile : S.asr.engine};
@@ -1305,9 +1379,9 @@ function renderRecords(){
   const list=RV.records.filter(r=>!q || [r.name,r.token,r.passage].some(v=>String(v).toLowerCase().includes(q)));
   const d=v=>{ const t=new Date(v); return isNaN(t)?"":t.toLocaleString("zh-TW",{hour12:false,month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}); };
   const v=x=>x===""||x==null?"—":esc(x);
-  $("#rvTable").innerHTML = list.length ? `<thead><tr><th>時間</th><th>姓名</th><th>代碼</th><th>年級</th><th>次</th><th>文章</th><th>WCPM</th><th>Prosody</th><th>理解</th><th>錄音</th><th>老師評分</th></tr></thead><tbody>`+
+  $("#rvTable").innerHTML = list.length ? `<thead><tr><th>時間</th><th>姓名</th><th>代碼</th><th>年級</th><th>次</th><th>文章</th><th>WCPM</th><th>Prosody</th><th>理解</th><th>總評</th><th>錄音</th><th>老師評分</th></tr></thead><tbody>`+
     list.map(r=>`<tr class="rvrow" data-rid="${esc(r.record_id)}" tabindex="0"><td class="m">${d(r.tested_at)}</td><td>${esc(r.name)}</td><td class="m">${esc(r.token)}</td><td class="m">G${esc(r.grade)}</td><td class="m">${v(r.attempt)}</td><td class="m">${v(r.passage)}</td>
-      <td class="m">${v(r.wcpm)}</td><td class="m">${v(r.prosody)}</td><td class="m">${v(r.retell_level)}</td><td>${r.has_audio?"有":"—"}</td>
+      <td class="m">${v(r.wcpm)}</td><td class="m">${v(r.prosody)}</td><td class="m">${v(r.retell_level)}</td><td>${v(r.profile)}</td><td>${r.has_audio?"有":"—"}</td>
       <td>${[r.teacher_wcpm,r.teacher_prosody,r.teacher_retell].some(x=>x!==""&&x!=null)?'<span class="chip good">已評</span>':""}</td></tr>`).join("")+"</tbody>"
     : `<tbody><tr><td class="muted">沒有符合的測驗。</td></tr></tbody>`;
 }
@@ -1331,7 +1405,10 @@ async function openRecord(rid){
   $("#tpInfo").textContent=`${R.name}（${R.token}，G${R.grade}）第 ${R.attempt} 次 · ${new Date(R.tested_at).toLocaleString("zh-TW",{hour12:false})} · 文章 ${R.passage}`;
   $("#tpAiWcpm").textContent=R.wcpm; $("#tpAiPros").textContent=R.prosody; $("#tpAiRetell").textContent=R.retell_level===""?"—":R.retell_level;
   $("#tpWcpm").value=v(R.teacher_wcpm); $("#tpPros").value=v(R.teacher_prosody); $("#tpRetell").value=v(R.teacher_retell); $("#tpNote").value=v(R.teacher_note);
-  $("#tpMsg").textContent=""; $("#tpAudioNote").textContent = S.audioURL ? "點原文中的任一個字，錄音會從那裡開始播放。" : "這筆測驗沒有朗讀錄音。";
+  $("#tpMsg").textContent=""; $("#tpShareMsg").textContent=""; $("#tpLinkRow").hidden=true;
+  RV.email=String(R.email||""); $("#tpSend").disabled=!RV.email;
+  $("#tpEmailInfo").textContent = (RV.email ? `收件人：${RV.email.split(",").join("、")}` : "名單中沒有這位學生的電子信箱，無法直接寄出（可在名單分頁的電子信箱欄補上）。")
+    + (R.sender ? `　寄件人：${R.sender}` : "") + (R.report_sent ? `　上次寄出：${R.report_sent}` : ""); $("#tpAudioNote").textContent = S.audioURL ? "點原文中的任一個字，錄音會從那裡開始播放。" : "這筆測驗沒有朗讀錄音。";
   $("#review").hidden=true; $("#s3").hidden=false; window.scrollTo({top:0});
 }
 $("#tpBack").onclick=()=>{ $("#s3").hidden=true; $("#review").hidden=false; S.override=null; renderRecords(); };
@@ -1344,7 +1421,65 @@ $("#tpSave").onclick=async()=>{
   }catch(_){ $("#tpMsg").textContent="儲存失敗，請再試一次。"; }
 };
 
-if(!reviewMode) setStep(1);
+/* ---------- Share link (teacher) ---------- */
+const reportURL = sid => location.origin + location.pathname + "#report=" + sid;
+$("#tpShare").onclick=async()=>{
+  $("#tpShareMsg").textContent="建立中…";
+  try{ const d=await api({action:"share"},{key:RV.key, rid:RV.rec.record_id});
+    if(!d.ok) throw 0;
+    $("#tpLink").value=reportURL(d.sid); $("#tpLinkRow").hidden=false;
+    $("#tpShareMsg").textContent=(d.reused?"沿用既有連結，":"已建立，")+"有效到 "+new Date(d.expires_at).toLocaleDateString("zh-TW")+"。";
+  }catch(_){ $("#tpShareMsg").textContent="建立失敗，請再試一次。"; }
+};
+$("#tpSend").onclick=async()=>{
+  if(!RV.email) return;
+  if(!window.confirm(`要把 ${RV.rec.name} 的報告寄到 ${RV.email.split(",").join("、")} 嗎？`)) return;
+  const btn=$("#tpSend"); btn.disabled=true; $("#tpShareMsg").textContent="寄送中…";
+  try{ const d=await api({action:"sendreport"},{key:RV.key, rid:RV.rec.record_id, base:location.origin+location.pathname});
+    if(!d.ok){ $("#tpShareMsg").textContent = d.error==="no_email" ? "名單中沒有這位學生的電子信箱。"
+      : d.error==="mail_failed" ? `寄送失敗：${d.message||"請稍後再試"}（每日寄信數量有上限）。` : `寄送失敗（${d.error}）。`; return; }
+    $("#tpLink").value=reportURL(d.sid); $("#tpLinkRow").hidden=false;
+    $("#tpShareMsg").textContent=`已寄出到 ${d.to.split(",").join("、")}。連結有效到 ${new Date(d.expires_at).toLocaleDateString("zh-TW")}；今天還可以寄 ${d.quota} 封。`;
+    $("#tpEmailInfo").textContent=$("#tpEmailInfo").textContent.replace(/　上次寄出：.*$/,"")+"　上次寄出：剛剛";
+  }catch(_){ $("#tpShareMsg").textContent="無法連線，請確認網路後再試。"; }
+  finally{ btn.disabled=!RV.email; }
+};
+$("#tpCopy").onclick=async()=>{ const el=$("#tpLink");
+  try{ await navigator.clipboard.writeText(el.value); $("#tpShareMsg").textContent="已複製連結。"; }
+  catch(_){ el.select(); $("#tpShareMsg").textContent="請按 Ctrl+C（Mac 為 ⌘+C）複製。"; } };
+$("#tpUnshare").onclick=async()=>{
+  $("#tpShareMsg").textContent="停用中…";
+  try{ const d=await api({action:"unshare"},{key:RV.key, rid:RV.rec.record_id}); if(!d.ok) throw 0;
+    $("#tpLinkRow").hidden=true; $("#tpLink").value=""; $("#tpShareMsg").textContent=d.revoked?"已停用這筆測驗的分享連結，舊連結將無法開啟。":"這筆測驗沒有有效的分享連結。";
+  }catch(_){ $("#tpShareMsg").textContent="停用失敗，請再試一次。"; }
+};
+
+/* ---------- Shared report (#report=...) ---------- */
+const reportSid = (location.hash.match(/^#report=([0-9a-f]{32,64})$/)||[])[1];
+if(reportSid){
+  document.body.classList.add("reportmode"); document.title="朗讀測驗報告";
+  $("#s1").hidden=true; $("#reportMsg").hidden=false;
+  $("#rpAudioSlot").appendChild($("#audioBox"));
+  (async()=>{
+    if(!API_OK){ $("#reportMsg").textContent="這個網站尚未完成設定，無法開啟報告。"; return; }
+    let d; try{ d=await api({action:"report"},{sid:reportSid}); }catch(_){ $("#reportMsg").textContent="無法連線，請稍後再重新整理。"; return; }
+    if(!d.ok){ $("#reportMsg").textContent = d.error==="expired" ? "這個報告連結已過期或已被老師停用。" : "找不到這份報告，請確認連結是否完整。"; return; }
+    if(!d.detail){ $("#reportMsg").textContent="這筆測驗沒有保存詳細資料。"; return; }
+    const D=d.detail, R=d.record;
+    S.audioURL = d.audio.reading ? URL.createObjectURL(b64Blob(d.audio.reading.data,d.audio.reading.mime)) : null;
+    S.rURL = d.audio.retell ? URL.createObjectURL(b64Blob(d.audio.retell.data,d.audio.retell.mime)) : null;
+    S.override={passage:D.passage, rules:D.rules}; S.asr=D.asr; S.retell=D.retell; S.retellStatus=D.retellStatus; S.diag=D.diag;
+    renderResults();
+    $("#rpName").textContent=`${R.name} 的朗讀測驗報告`;
+    $("#rpMeta").textContent=`G${R.grade} · 第 ${R.attempt} 次測驗 · ${new Date(R.tested_at).toLocaleString("zh-TW",{hour12:false,year:"numeric",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})} · 連結有效到 ${new Date(d.expires_at).toLocaleDateString("zh-TW")}`;
+    $("#rpTitle").textContent=D.passage.title||"";
+    $("#rpText").textContent=displayText(D.passage.text);
+    $("#rpAudioNote").textContent = S.audioURL ? "點下方「原文與朗讀比對」中的任一個字，錄音會從那裡開始播放。" : "這次測驗沒有保存朗讀錄音。";
+    $("#reportMsg").hidden=true; $("#s3").hidden=false;
+  })();
+}
+
+if(!reviewMode && !reportSid) setStep(1);
 </script>
 
 </body>
