@@ -32,7 +32,6 @@ For each meaning unit decide:
 Give evidence as a short exact quote from the transcript (empty string when "none").
 
 Also judge:
-- main_idea: 2 = states the central idea of the passage, 1 = touches on it or only gives the topic, 0 = no.
 - sequence: 2 = events/steps the student mentions are in a sensible order, 1 = partly mixed up, 0 = confused;
   null when the student mentions fewer than two units, or the passage is not about a sequence of events or steps.
 - misconceptions: statements that contradict the passage (quote or paraphrase each briefly). Empty list if none.
@@ -42,7 +41,7 @@ Also judge:
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["units", "main_idea", "sequence", "misconceptions", "verbatim", "note_zh"],
+  required: ["units", "sequence", "misconceptions", "verbatim", "note_zh"],
   properties: {
     units: {
       type: "array",
@@ -57,7 +56,6 @@ const SCHEMA = {
         },
       },
     },
-    main_idea: { type: "integer", enum: [0, 1, 2] },
     sequence: { anyOf: [{ type: "integer", enum: [0, 1, 2] }, { type: "null" }] },
     misconceptions: { type: "array", items: { type: "string" } },
     verbatim: { type: "boolean" },
@@ -69,7 +67,7 @@ const SCHEMA = {
 const cleanText = (t) => String(t).split(/\s+/).filter((w) => !/^(\/\/?|\{(?:up|down)\})$/i.test(w)).join(" ").replace(/\{(?:up|down)\}/gi, "").trim();
 const parseIdeas = (s) =>
   String(s || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-    .map((l) => ({ main: l.startsWith("*"), text: l.replace(/^\*\s*/, "").replace(/^\d+[.)]\s*/, "") }));
+    .map((l) => ({ text: l.replace(/^\*\s*/, "").replace(/^\d+[.)]\s*/, "") }));  // 行首的 * 是舊格式的主旨標記，現在一律當作一般意義單位
 
 function computeScore(units, ideas, j) {
   const pts = { full: 1, partial: 0.5, none: 0 };
@@ -78,9 +76,9 @@ function computeScore(units, ideas, j) {
   const recall = ideas.length ? got / ideas.length : 0;
   const mis = (j.misconceptions || []).length;
   let level = 1;
-  if (recall >= 0.7 && j.main_idea === 2 && mis === 0) level = 4;
-  else if (recall >= 0.5 && j.main_idea >= 1) level = 3;
-  else if (recall >= 0.25 || j.main_idea >= 1) level = 2;
+  if (recall >= 0.7 && mis === 0) level = 4;
+  else if (recall >= 0.4) level = 3;
+  else if (recall >= 0.25) level = 2;
   return { recall: Math.round(recall * 1000) / 10, full, partial, total: ideas.length, level };
 }
 
@@ -140,14 +138,14 @@ export default async (req) => {
   const words = transcript ? transcript.split(/\s+/).filter((w) => /[a-z]/i.test(w)).length : 0;
   if (words < 2) {
     const units = ideas.map((_, i) => ({ n: i + 1, status: "none", evidence: "" }));
-    const j = { main_idea: 0, sequence: null, misconceptions: [], verbatim: false, note_zh: "幾乎沒有說出內容。" };
+    const j = { sequence: null, misconceptions: [], verbatim: false, note_zh: "幾乎沒有說出內容。" };
     return json({ ok: true, transcript, words, units, ...j, ...computeScore(units, ideas, j) });
   }
 
   // 2. 評分
   const userMsg =
-    `PASSAGE:\n${cleanText(text)}\n\nMEANING UNITS (the one marked MAIN is the central idea):\n` +
-    ideas.map((u, i) => `${i + 1}. ${u.main ? "[MAIN] " : ""}${u.text}`).join("\n") +
+    `PASSAGE:\n${cleanText(text)}\n\nMEANING UNITS:\n` +
+    ideas.map((u, i) => `${i + 1}. ${u.text}`).join("\n") +
     `\n\nSTUDENT RETELL (automatic transcript):\n"""${transcript}"""\n\nReturn one entry in "units" for each meaning unit, in order, with n = its number.`;
   const body = {
     model: env("RETELL_SCORE_MODEL") || "gpt-6-luna",
@@ -170,6 +168,6 @@ export default async (req) => {
 
   const byN = new Map((j.units || []).map((u) => [u.n, u]));
   const units = ideas.map((_, i) => byN.get(i + 1) || { n: i + 1, status: "none", evidence: "" });
-  return json({ ok: true, transcript, words, units, main_idea: j.main_idea, sequence: j.sequence,
+  return json({ ok: true, transcript, words, units, sequence: j.sequence,
     misconceptions: j.misconceptions || [], verbatim: !!j.verbatim, note_zh: j.note_zh || "", ...computeScore(units, ideas, j) });
 };
