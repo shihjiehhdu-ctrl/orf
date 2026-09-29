@@ -916,7 +916,8 @@ async function runWhisper(){
     const code=err?.error||"network";
     const MSG={token_required:"練習模式沒有開放真實辨識。請輸入學生代碼，或改用模擬結果。",
       bad_token:"代碼驗證失敗，請重新輸入代碼。", too_large:"錄音檔太大（超過 4 MB），請縮短朗讀時間後重錄。",
-      server_not_configured:"伺服器還沒設定 OpenAI 金鑰（OPENAI_API_KEY）。", network:"無法連上辨識服務，請檢查網路後再送一次。"};
+      server_not_configured:"伺服器還沒設定 OpenAI 金鑰（OPENAI_API_KEY）。", network:"無法連上辨識服務，請檢查網路後再送一次。",
+      whisper_timeout:"語音辨識花太久時間，請按「再送一次」。", bad_response_504:"辨識服務逾時，請按「再送一次」。"};
     upFail(MSG[code] || `辨識失敗（${code}），請再送一次。`); return;
   }
   upStep(0,"ok");
@@ -1061,7 +1062,9 @@ async function uploadRetell(){
   if(!d.ok){
     const MSG={token_required:"練習模式沒有開放重述評分，請輸入學生代碼，或略過重述。", bad_token:"代碼驗證失敗。",
       no_ideas:"這篇文章還沒有設定意義單位，無法評分。", too_large:"錄音檔太大，請重新錄一段較短的重述。",
-      server_not_configured:"伺服器還沒設定 OpenAI 金鑰。", network:"無法連上評分服務，請檢查網路後再送一次。"};
+      server_not_configured:"伺服器還沒設定 OpenAI 金鑰。", network:"無法連上評分服務，請檢查網路後再送一次。",
+      transcribe_timeout:"轉寫重述錄音花太久時間，請按「再送一次」。", score_timeout:"AI 評分花太久時間，請按「再送一次」。",
+      bad_response_504:"評分服務逾時，請按「再送一次」。如果一直發生，請告訴老師。"};
     retellFail(MSG[d.error] || `重述評分失敗（${d.error}），請再送一次。`); return;
   }
   $("#rBar").style.width="100%"; S.retell=d; if(S.rURL) URL.revokeObjectURL(S.rURL); S.rURL=URL.createObjectURL(S.rBlob); showResults();
