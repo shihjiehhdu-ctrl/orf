@@ -82,6 +82,17 @@ function computeScore(units, ideas, j) {
   return { recall: Math.round(recall * 1000) / 10, full, partial, total: ideas.length, level };
 }
 
+/* 同一個函式實例在幾分鐘內會被重複使用，文章清單暫存 2 分鐘，減少向試算表查詢的次數 */
+let passageCache = { at: 0, list: null };
+async function getPassages(sheet) {
+  if (passageCache.list && Date.now() - passageCache.at < 120000) return passageCache.list;
+  try {
+    const d = await (await fetch(sheet + "?" + new URLSearchParams({ action: "passages" }))).json();
+    if (d && d.ok) { passageCache = { at: Date.now(), list: d.passages || [] }; return passageCache.list; }
+  } catch { /* fall back to what the page sent (built-in passages) */ }
+  return null;
+}
+
 export default async (req) => {
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
   const key = env("OPENAI_API_KEY");
@@ -98,24 +109,18 @@ export default async (req) => {
   // 身分檢查與文章來源：有 SHEET_API 時，以試算表上的文章與意義單位為準，不採用網頁送來的版本
   const sheet = env("SHEET_API");
   let text = String(form.get("text") || ""), ideasRaw = String(form.get("ideas") || "");
-  if (token) {
-    if (sheet) {
-      try {
-        const d = await (await fetch(sheet + "?" + new URLSearchParams({ action: "lookup", token }))).json();
-        if (!d.ok) return json({ ok: false, error: "bad_token" }, 403);
-      } catch { return json({ ok: false, error: "roster_unreachable" }, 502); }
-    }
-  } else if (env("ALLOW_PRACTICE") !== "true") {
-    return json({ ok: false, error: "token_required" }, 403);
-  }
-  if (sheet) {
-    try {
-      const d = await (await fetch(sheet + "?" + new URLSearchParams({ action: "passages" }))).json();
-      const list = d.passages || [];
-      const p = list.find((x) => String(x.id) === pid);
-      if (p) { text = p.text; ideasRaw = p.ideas || ""; }
-      else if (list.length) return json({ ok: false, error: "passage_not_found" }, 400); // 試算表有文章時，不接受網頁自帶的版本
-    } catch { /* fall back to what the page sent (built-in passages) */ }
+  if (!token && env("ALLOW_PRACTICE") !== "true") return json({ ok: false, error: "token_required" }, 403);
+  // 代碼驗證與讀取文章同時進行，不必一個等一個
+  const [who, plist] = sheet ? await Promise.all([
+    token ? fetch(sheet + "?" + new URLSearchParams({ action: "lookup", token })).then((r) => r.json()).catch(() => null) : Promise.resolve({ ok: true }),
+    getPassages(sheet),
+  ]) : [{ ok: true }, null];
+  if (!who) return json({ ok: false, error: "roster_unreachable" }, 502);
+  if (!who.ok) return json({ ok: false, error: "bad_token" }, 403);
+  if (plist) {
+    const p = plist.find((x) => String(x.id) === pid);
+    if (p) { text = p.text; ideasRaw = p.ideas || ""; }
+    else if (plist.length) return json({ ok: false, error: "passage_not_found" }, 400); // 試算表有文章時，不接受網頁自帶的版本
   }
   const ideas = parseIdeas(ideasRaw);
   if (!text || !ideas.length) return json({ ok: false, error: "no_ideas" }, 400);
