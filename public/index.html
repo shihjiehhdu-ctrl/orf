@@ -908,7 +908,7 @@ async function runWhisper(){
   let data;
   try{
     const fd=new FormData(); fd.append("audio",file,fname);
-    fd.append("token",ST.student?ST.student.token:""); fd.append("passage",String(S.pid));
+    fd.append("token",ST.student?ST.student.token:""); fd.append("ticket",ST.student?ST.student.ticket:""); fd.append("passage",String(S.pid));
     const r=await fetch(TRANSCRIBE_API,{method:"POST",body:fd});
     data=await r.json().catch(()=>({ok:false,error:"bad_response_"+r.status}));
     if(!data.ok) throw data;
@@ -917,7 +917,8 @@ async function runWhisper(){
     const MSG={token_required:"練習模式沒有開放真實辨識。請輸入學生代碼，或改用模擬結果。",
       bad_token:"代碼驗證失敗，請重新輸入代碼。", too_large:"錄音檔太大（超過 4 MB），請縮短朗讀時間後重錄。",
       server_not_configured:"伺服器還沒設定 OpenAI 金鑰（OPENAI_API_KEY）。", network:"無法連上辨識服務，請檢查網路後再送一次。",
-      whisper_timeout:"語音辨識花太久時間，請按「再送一次」。", bad_response_504:"辨識服務逾時，請按「再送一次」。"};
+      whisper_timeout:"語音辨識花太久時間，請按「再送一次」。", bad_response_504:"辨識服務逾時，請按「再送一次」。",
+      roster_unreachable:"暫時連不上學生名單，請按「再送一次」。"};
     upFail(MSG[code] || `辨識失敗（${code}），請再送一次。`); return;
   }
   upStep(0,"ok");
@@ -1053,7 +1054,7 @@ async function uploadRetell(){
   const p=P(); let file=S.rBlob, fname="retell.webm";
   try{ const wav=await toWav16k(await decodeBlob(S.rBlob)); if(wav.size<=3_900_000){ file=wav; fname="retell.wav"; } }
   catch(_){ const t=S.rBlob.type; fname="retell."+(/mp4|m4a|aac/.test(t)?"m4a":/ogg/.test(t)?"ogg":"webm"); }
-  const fd=new FormData(); fd.append("audio",file,fname); fd.append("token",ST.student?ST.student.token:"");
+  const fd=new FormData(); fd.append("audio",file,fname); fd.append("token",ST.student?ST.student.token:""); fd.append("ticket",ST.student?ST.student.ticket:"");
   fd.append("passage",String(p.id)); fd.append("text",p.text); fd.append("ideas",p.ideas||"");
   $("#rBar").style.width="60%";
   let d;
@@ -1064,7 +1065,8 @@ async function uploadRetell(){
       no_ideas:"這篇文章還沒有設定意義單位，無法評分。", too_large:"錄音檔太大，請重新錄一段較短的重述。",
       server_not_configured:"伺服器還沒設定 OpenAI 金鑰。", network:"無法連上評分服務，請檢查網路後再送一次。",
       transcribe_timeout:"轉寫重述錄音花太久時間，請按「再送一次」。", score_timeout:"AI 評分花太久時間，請按「再送一次」。",
-      bad_response_504:"評分服務逾時，請按「再送一次」。如果一直發生，請告訴老師。"};
+      bad_response_504:"評分服務逾時，請按「再送一次」。如果一直發生，請告訴老師。",
+      roster_unreachable:"暫時連不上學生名單，請按「再送一次」。"};
     retellFail(MSG[d.error] || `重述評分失敗（${d.error}），請再送一次。`); return;
   }
   $("#rBar").style.width="100%"; S.retell=d; if(S.rURL) URL.revokeObjectURL(S.rURL); S.rURL=URL.createObjectURL(S.rBlob); showResults();
@@ -1332,7 +1334,7 @@ $("#tokenForm").addEventListener("submit",async e=>{
     const grade=Math.min(6,Math.max(1,+d.grade||1));
     const pass=PASSAGES.find(p=>p.grade===grade);
     if(!pass){ tokenMsg(`目前沒有 G${grade} 的文章，請告訴老師。`,true); return; }
-    ST.student={token:tok,name:String(d.name||"（未命名）"),grade};
+    ST.student={token:tok,name:String(d.name||"（未命名）"),grade,ticket:String(d.ticket||"")};
     $("#stName").textContent=ST.student.name; $("#stGrade").textContent="G"+grade; $("#studentBar").hidden=false;
     $("#tokenInput").value=""; tokenMsg("");
     document.body.classList.add("stmode");
