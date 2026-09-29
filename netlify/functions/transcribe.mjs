@@ -12,7 +12,7 @@ const MAX_BYTES = 4_000_000; // Netlify 同步函式的請求上限約 4.5 MB（
 // 而不是自動整理成通順的句子。刻意不放原文，否則它會更傾向把讀錯的字「聽成」正確的字。
 const PROMPT = "Umm, the, the dog is... is big. The cat, I mean the cap, is red. Uh, let me see.";
 
-const env = (k) => globalThis.Netlify?.env?.get(k) ?? process.env[k];
+import { env, checkStudent } from "../lib/auth.mjs";
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json; charset=utf-8" } });
 
@@ -26,24 +26,13 @@ export default async (req) => {
   try { form = await req.formData(); } catch { return json({ ok: false, error: "bad_form" }, 400); }
   const audio = form.get("audio");
   const token = String(form.get("token") || "").trim().toUpperCase();
+  const ticket = String(form.get("ticket") || "");
   if (!audio || typeof audio === "string") return json({ ok: false, error: "no_audio" }, 400);
   if (audio.size > MAX_BYTES) return json({ ok: false, error: "too_large" }, 413);
 
-  // 誰可以用：名單上的學生代碼；或在 ALLOW_PRACTICE=true 時開放自由練習
-  if (token) {
-    const sheet = env("SHEET_API");
-    if (sheet) {
-      try {
-        const r = await fetch(sheet + "?" + new URLSearchParams({ action: "lookup", token }), { signal: AbortSignal.timeout(8000) });
-        const d = await r.json();
-        if (!d.ok) return json({ ok: false, error: "bad_token" }, 403);
-      } catch {
-        return json({ ok: false, error: "roster_unreachable" }, 502);
-      }
-    }
-  } else if (env("ALLOW_PRACTICE") !== "true") {
-    return json({ ok: false, error: "token_required" }, 403);
-  }
+  // 誰可以用：名單上的學生（通行票或查詢代碼）；或在 ALLOW_PRACTICE=true 時開放自由練習
+  const who = await checkStudent(token, ticket);
+  if (!who.ok) return json({ ok: false, error: who.error }, who.status);
 
   const fd = new FormData();
   fd.append("file", audio, audio.name || "reading.webm");
@@ -56,12 +45,12 @@ export default async (req) => {
 
   let r;
   try {
-    // Netlify 同步函式上限 60 秒；辨識最多等 45 秒，逾時回傳清楚的錯誤而不是 504
+    // Netlify 同步函式上限 60 秒；辨識最多等 38 秒（前面的代碼查詢最多約 20 秒），逾時回傳清楚的錯誤而不是 504
     r = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}` },
       body: fd,
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(38000),
     });
   } catch (e) {
     const to = e && (e.name === "TimeoutError" || e.name === "AbortError");

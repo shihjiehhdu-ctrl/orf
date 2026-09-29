@@ -14,12 +14,12 @@
 export const config = { path: "/api/retell" };
 
 const MAX_BYTES = 4_000_000;
-const LIMIT = { sheet: 8000, transcribe: 20000, score: 25000 };   // 各步驟時限（毫秒）
+const LIMIT = { sheet: 10000, transcribe: 15000, score: 22000 };   // 各步驟時限（毫秒）；試算表查詢失敗會重試一次
 
 /* fetch with a time limit; a timeout rejects with name "TimeoutError" */
 const tfetch = (url, opts = {}, ms = 10000) => fetch(url, { ...opts, signal: AbortSignal.timeout(ms) });
 const isTimeout = (e) => e && (e.name === "TimeoutError" || e.name === "AbortError");
-const env = (k) => globalThis.Netlify?.env?.get(k) ?? process.env[k];
+import { env, checkStudent, sheetGet } from "../lib/auth.mjs";
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json; charset=utf-8" } });
 
@@ -94,11 +94,9 @@ function computeScore(units, ideas, j) {
 let passageCache = { at: 0, list: null };
 async function getPassages(sheet) {
   if (passageCache.list && Date.now() - passageCache.at < 120000) return passageCache.list;
-  try {
-    const d = await (await tfetch(sheet + "?" + new URLSearchParams({ action: "passages" }), {}, LIMIT.sheet)).json();
-    if (d && d.ok) { passageCache = { at: Date.now(), list: d.passages || [] }; return passageCache.list; }
-  } catch { /* fall back to what the page sent (built-in passages) */ }
-  return null;
+  const d = await sheetGet(sheet, { action: "passages" }, { ms: LIMIT.sheet });
+  if (d && d.ok) { passageCache = { at: Date.now(), list: d.passages || [] }; return passageCache.list; }
+  return null;   // 讀不到時，改用網頁送來的文章與意義單位
 }
 
 export default async (req) => {
@@ -111,6 +109,7 @@ export default async (req) => {
   try { form = await req.formData(); } catch { return json({ ok: false, error: "bad_form" }, 400); }
   const audio = form.get("audio");
   const token = String(form.get("token") || "").trim().toUpperCase();
+  const ticket = String(form.get("ticket") || "");
   const pid = String(form.get("passage") || "");
   if (!audio || typeof audio === "string") return json({ ok: false, error: "no_audio" }, 400);
   if (audio.size > MAX_BYTES) return json({ ok: false, error: "too_large" }, 413);
@@ -118,14 +117,9 @@ export default async (req) => {
   // 身分檢查與文章來源：有 SHEET_API 時，以試算表上的文章與意義單位為準，不採用網頁送來的版本
   const sheet = env("SHEET_API");
   let text = String(form.get("text") || ""), ideasRaw = String(form.get("ideas") || "");
-  if (!token && env("ALLOW_PRACTICE") !== "true") return json({ ok: false, error: "token_required" }, 403);
-  // 代碼驗證與讀取文章同時進行，不必一個等一個
-  const [who, plist] = sheet ? await Promise.all([
-    token ? tfetch(sheet + "?" + new URLSearchParams({ action: "lookup", token }), {}, LIMIT.sheet).then((r) => r.json()).catch(() => null) : Promise.resolve({ ok: true }),
-    getPassages(sheet),
-  ]) : [{ ok: true }, null];
-  if (!who) return json({ ok: false, error: "roster_unreachable" }, 502);
-  if (!who.ok) return json({ ok: false, error: "bad_token" }, 403);
+  // 身分驗證與讀取文章同時進行，不必一個等一個
+  const [who, plist] = await Promise.all([checkStudent(token, ticket), sheet ? getPassages(sheet) : Promise.resolve(null)]);
+  if (!who.ok) return json({ ok: false, error: who.error }, who.status);
   if (plist) {
     const p = plist.find((x) => String(x.id) === pid);
     if (p) { text = p.text; ideasRaw = p.ideas || ""; }
