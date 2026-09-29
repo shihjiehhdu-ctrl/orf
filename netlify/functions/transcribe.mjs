@@ -34,7 +34,7 @@ export default async (req) => {
     const sheet = env("SHEET_API");
     if (sheet) {
       try {
-        const r = await fetch(sheet + "?" + new URLSearchParams({ action: "lookup", token }));
+        const r = await fetch(sheet + "?" + new URLSearchParams({ action: "lookup", token }), { signal: AbortSignal.timeout(8000) });
         const d = await r.json();
         if (!d.ok) return json({ ok: false, error: "bad_token" }, 403);
       } catch {
@@ -56,13 +56,16 @@ export default async (req) => {
 
   let r;
   try {
+    // Netlify 同步函式上限 60 秒；辨識最多等 45 秒，逾時回傳清楚的錯誤而不是 504
     r = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}` },
       body: fd,
+      signal: AbortSignal.timeout(45000),
     });
-  } catch {
-    return json({ ok: false, error: "openai_unreachable" }, 502);
+  } catch (e) {
+    const to = e && (e.name === "TimeoutError" || e.name === "AbortError");
+    return json({ ok: false, error: to ? "whisper_timeout" : "openai_unreachable" }, 502);
   }
   if (!r.ok) {
     console.error("OpenAI error", r.status, await r.text());

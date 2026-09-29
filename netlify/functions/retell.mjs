@@ -6,11 +6,19 @@
 // 環境變數（除了 OPENAI_API_KEY、SHEET_API、ALLOW_PRACTICE 之外，以下都可不設）：
 //   RETELL_TRANSCRIBE_MODEL  轉錄模型，預設 gpt-transcribe（OpenAI 建議的新模型；舊的 gpt-4o-transcribe 將於 2027/2/26 移除）
 //   RETELL_SCORE_MODEL       評分模型，預設 gpt-6-luna
-//   RETELL_REASONING         評分模型的 reasoning effort，預設 low
+//   RETELL_REASONING         評分模型的 reasoning effort，預設 none（最快；需要時可改 low）
+//
+// Netlify 同步函式最多執行 60 秒，超過會被強制中斷並回傳 504。
+// 所以每一步都設了時限，總時間控制在約 50 秒內；逾時會回傳清楚的錯誤，而不是 504。
 
 export const config = { path: "/api/retell" };
 
 const MAX_BYTES = 4_000_000;
+const LIMIT = { sheet: 8000, transcribe: 20000, score: 25000 };   // 各步驟時限（毫秒）
+
+/* fetch with a time limit; a timeout rejects with name "TimeoutError" */
+const tfetch = (url, opts = {}, ms = 10000) => fetch(url, { ...opts, signal: AbortSignal.timeout(ms) });
+const isTimeout = (e) => e && (e.name === "TimeoutError" || e.name === "AbortError");
 const env = (k) => globalThis.Netlify?.env?.get(k) ?? process.env[k];
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json; charset=utf-8" } });
@@ -87,13 +95,14 @@ let passageCache = { at: 0, list: null };
 async function getPassages(sheet) {
   if (passageCache.list && Date.now() - passageCache.at < 120000) return passageCache.list;
   try {
-    const d = await (await fetch(sheet + "?" + new URLSearchParams({ action: "passages" }))).json();
+    const d = await (await tfetch(sheet + "?" + new URLSearchParams({ action: "passages" }), {}, LIMIT.sheet)).json();
     if (d && d.ok) { passageCache = { at: Date.now(), list: d.passages || [] }; return passageCache.list; }
   } catch { /* fall back to what the page sent (built-in passages) */ }
   return null;
 }
 
 export default async (req) => {
+  const t0 = Date.now(), lap = (label) => console.log(`[retell] ${label} ${Date.now() - t0}ms`);
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
   const key = env("OPENAI_API_KEY");
   if (!key) return json({ ok: false, error: "server_not_configured" }, 500);
@@ -112,7 +121,7 @@ export default async (req) => {
   if (!token && env("ALLOW_PRACTICE") !== "true") return json({ ok: false, error: "token_required" }, 403);
   // 代碼驗證與讀取文章同時進行，不必一個等一個
   const [who, plist] = sheet ? await Promise.all([
-    token ? fetch(sheet + "?" + new URLSearchParams({ action: "lookup", token })).then((r) => r.json()).catch(() => null) : Promise.resolve({ ok: true }),
+    token ? tfetch(sheet + "?" + new URLSearchParams({ action: "lookup", token }), {}, LIMIT.sheet).then((r) => r.json()).catch(() => null) : Promise.resolve({ ok: true }),
     getPassages(sheet),
   ]) : [{ ok: true }, null];
   if (!who) return json({ ok: false, error: "roster_unreachable" }, 502);
@@ -122,6 +131,7 @@ export default async (req) => {
     if (p) { text = p.text; ideasRaw = p.ideas || ""; }
     else if (plist.length) return json({ ok: false, error: "passage_not_found" }, 400); // 試算表有文章時，不接受網頁自帶的版本
   }
+  lap("roster+passages");
   const ideas = parseIdeas(ideasRaw);
   if (!text || !ideas.length) return json({ ok: false, error: "no_ideas" }, 400);
 
@@ -135,10 +145,11 @@ export default async (req) => {
   fd.append("response_format", "json");
   let transcript = "";
   try {
-    const r = await fetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: fd });
+    const r = await tfetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: fd }, LIMIT.transcribe);
     if (!r.ok) { console.error("transcribe", r.status, await r.text()); return json({ ok: false, error: "openai_" + r.status }, 502); }
     transcript = String((await r.json()).text || "").trim();
-  } catch { return json({ ok: false, error: "openai_unreachable" }, 502); }
+  } catch (e) { return json({ ok: false, error: isTimeout(e) ? "transcribe_timeout" : "openai_unreachable" }, 502); }
+  lap("transcribe");
 
   const words = transcript ? transcript.split(/\s+/).filter((w) => /[a-z]/i.test(w)).length : 0;
   if (words < 2) {
@@ -154,22 +165,26 @@ export default async (req) => {
     `\n\nSTUDENT RETELL (automatic transcript):\n"""${transcript}"""\n\nReturn one entry in "units" for each meaning unit, in order, with n = its number.`;
   const body = {
     model: env("RETELL_SCORE_MODEL") || "gpt-6-luna",
-    reasoning: { effort: env("RETELL_REASONING") || "low" },
+    reasoning: { effort: env("RETELL_REASONING") || "none" },
     input: [{ role: "system", content: INSTRUCTIONS }, { role: "user", content: userMsg }],
     text: { format: { type: "json_schema", name: "retell_score", schema: SCHEMA, strict: true } },
   };
   let j;
   try {
-    const r = await fetch("https://api.openai.com/v1/responses", {
+    const r = await tfetch("https://api.openai.com/v1/responses", {
       method: "POST", headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" }, body: JSON.stringify(body),
-    });
+    }, LIMIT.score);
     if (!r.ok) { console.error("score", r.status, await r.text()); return json({ ok: false, error: "score_" + r.status }, 502); }
     const d = await r.json();
     const parts = (d.output || []).filter((o) => o.type === "message").flatMap((o) => o.content || []);
     const txt = parts.find((c) => c.type === "output_text")?.text;
     if (!txt) return json({ ok: false, error: parts.some((c) => c.type === "refusal") ? "score_refused" : "score_empty" }, 502);
     j = JSON.parse(txt);
-  } catch (e) { console.error("score parse", e); return json({ ok: false, error: "score_failed" }, 502); }
+  } catch (e) {
+    if (isTimeout(e)) { lap("score TIMEOUT"); return json({ ok: false, error: "score_timeout" }, 502); }
+    console.error("score parse", e); return json({ ok: false, error: "score_failed" }, 502);
+  }
+  lap("score");
 
   const byN = new Map((j.units || []).map((u) => [u.n, u]));
   const units = ideas.map((_, i) => byN.get(i + 1) || { n: i + 1, status: "none", evidence: "" });
