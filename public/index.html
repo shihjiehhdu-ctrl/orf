@@ -237,7 +237,16 @@ body.src-whisper .simonly{display:none}
 .retellcard{margin-top:14px;padding:18px 20px;border-radius:10px;background:var(--accent-soft);display:flex;flex-direction:column;gap:8px}
 .retellprompt{font:600 clamp(20px,2.6vw,26px)/1.35 var(--read);color:var(--ink)}
 .retellhint{font:500 16px var(--read);color:var(--accent);flex-basis:100%;min-height:1.4em}
-body.stmode #rSkipBtn{display:none}
+body.stmode #rSkipBtn, body.stmode #rSkip0Btn{display:none}
+.prepcard{margin-top:14px;padding:18px 20px;border-radius:10px;border:1px solid var(--accent);background:var(--accent-soft);display:flex;flex-direction:column;gap:10px}
+.preplist{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:1.6;max-width:70ch}
+.preplist b{color:var(--accent)}
+.prepbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-top:4px}
+.prepcount{font-weight:600}
+.prepcount .num{font-size:22px;color:var(--accent)}
+.prepmeter{flex:1 1 160px;max-width:320px;height:6px;border-radius:3px;background:var(--surface);overflow:hidden}
+.prepmeter i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s linear}
+#rPassage{margin-top:18px}
 .units{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
 .units li{display:grid;grid-template-columns:22px 1fr;gap:8px;font-size:14px;line-height:1.5}
 .units .ic{font:600 14px var(--mono);text-align:center}
@@ -360,7 +369,26 @@ body.stmode .ruleCtl{display:none}
       <span class="grade" id="rGrade"></span>
       <h2>重述：用自己的話說說這篇文章</h2>
     </div>
-    <div class="retellcard">
+    <div id="rPrep">
+      <div class="prepcard">
+        <h3>接下來是「重述」</h3>
+        <ol class="preplist">
+          <li>你有 <b>30 秒</b>可以再看一次下面的文章。想一想：文章裡有誰？發生了什麼事？講了哪些重點？</li>
+          <li>時間到了，文章會自動收起來，之後就看不到了。</li>
+          <li>接著按「開始重述」，用<b>英文</b>、用<b>你自己的話</b>，說出你記得的內容。不用背原文，也不需要一字不漏。</li>
+          <li>文法、發音說錯<b>不會扣分</b>，我們只看你懂不懂文章的內容。</li>
+          <li>盡量多說一些細節，並照事情發生的順序說。</li>
+          <li>最多說 <b>1 分鐘</b>，說完按「結束」。如果畫面出現 <span lang="en">“Can you tell me more?”</span>，表示你還可以再多說一點。</li>
+        </ol>
+        <div class="prepbar">
+          <span class="prepcount"><span class="num" id="rPrepSec">30</span> 秒後文章會收起來</span>
+          <div class="prepmeter"><i id="rPrepBar"></i></div>
+          <button class="linkbtn" id="rSkip0Btn" type="button" style="margin-left:auto">略過重述</button>
+        </div>
+      </div>
+      <p class="reading" id="rPassage"></p>
+    </div>
+    <div class="retellcard" id="rCard">
       <p class="retellprompt" lang="en">Tell me about what you just read, in your own words.</p>
       <p class="note">文章已經收起來了。請用英文說出你記得的內容：發生了什麼事、講了哪些重點。不用背原文，文法說錯也不會扣分。最多 1 分鐘。</p>
     </div>
@@ -960,9 +988,20 @@ function simulateRetell(p){
   return {simulated:true, transcript, words:transcript.split(/\s+/).filter(Boolean).length, units, ...j, ...retellScore(units,ideas,j)};
 }
 
-function goRetell(){
+const RETELL_PREVIEW_SEC=30;   /* 重述前讓學生再看一次文章的秒數 */
+let rPrepTick=null;
+function goRetell(noPreview){
   const p=P(); $("#rGrade").textContent="G"+p.grade;
-  $("#rIdle").hidden=false; $("#rLive").hidden=true; $("#rUp").hidden=true;
+  $("#rPassage").textContent=displayText(p.text);
+  $("#rPrep").hidden=false; $("#rCard").hidden=true;
+  $("#rIdle").hidden=true; $("#rLive").hidden=true; $("#rUp").hidden=true;
+  clearInterval(rPrepTick);
+  const t0=performance.now();
+  const upd=()=>{ const left=Math.max(0,RETELL_PREVIEW_SEC-(performance.now()-t0)/1000);
+    $("#rPrepSec").textContent=Math.ceil(left); $("#rPrepBar").style.width=(100-left/RETELL_PREVIEW_SEC*100)+"%";
+    if(left<=0){ clearInterval(rPrepTick); $("#rPrep").hidden=true; $("#rPassage").textContent=""; $("#rCard").hidden=false; $("#rIdle").hidden=false; } };
+  if(noPreview){ $("#rPrep").hidden=true; $("#rPassage").textContent=""; $("#rCard").hidden=false; $("#rIdle").hidden=false; }
+  else { upd(); rPrepTick=setInterval(upd,200); }
   $("#rTimer").textContent="01:00"; $("#rHint").textContent="";
   S.rBlob=null; if(S.rURL){ URL.revokeObjectURL(S.rURL); S.rURL=null; } setStep(3);
 }
@@ -1028,8 +1067,8 @@ async function uploadRetell(){
   $("#rBar").style.width="100%"; S.retell=d; if(S.rURL) URL.revokeObjectURL(S.rURL); S.rURL=URL.createObjectURL(S.rBlob); showResults();
 }
 $("#rRetryBtn").onclick=()=>uploadRetell();
-$("#rRedoBtn").onclick=()=>{ $("#rErr").hidden=true; $("#rErrActions").hidden=true; goRetell(); };
-$("#rSkipBtn").onclick=$("#rSkip2Btn").onclick=()=>{ S.retell=null; S.retellStatus= ST.student ? "重述未完成" : "略過重述"; showResults(); };
+$("#rRedoBtn").onclick=()=>{ $("#rErr").hidden=true; $("#rErrActions").hidden=true; goRetell(true); };
+$("#rSkipBtn").onclick=$("#rSkip2Btn").onclick=$("#rSkip0Btn").onclick=()=>{ clearInterval(rPrepTick); S.retell=null; S.retellStatus= ST.student ? "重述未完成" : "略過重述"; showResults(); };
 
 const LEVEL_ZH={4:"完整理解",3:"大致理解",2:"部分理解",1:"理解有限"};
 function renderRetell(p){
@@ -1339,12 +1378,10 @@ async function uploadArtifacts(rid, p, rules){
   const jobs=[["detail",new Blob([JSON.stringify(detail)],{type:"application/json"})]];
   if(S.audioBlob && S.asr.engine!=="simulated") jobs.push(["reading",S.audioBlob]);
   if(S.rBlob && S.retell && !S.retell.simulated) jobs.push(["retell",S.rBlob]);
-  let failed=0;
-  for(const [kind,blob] of jobs){
+  const res=await Promise.all(jobs.map(async ([kind,blob])=>{
     try{ const d=await api({action:"upload"},{token:ST.student.token, rid, kind, mime:(blob.type||"audio/webm").split(";")[0], data:await blobToB64(blob)});
-      if(!d.ok) failed++; }catch(_){ failed++; }
-  }
-  return failed;
+      return d.ok?0:1; }catch(_){ return 1; } }));
+  return res.reduce((x,y)=>x+y,0);
 }
 
 /* ---------- Teacher review (open the page with #review) ---------- */
@@ -1388,6 +1425,24 @@ function renderRecords(){
 $("#rvTable").addEventListener("click",e=>{ const r=e.target.closest(".rvrow"); if(r) openRecord(r.dataset.rid); });
 $("#rvTable").addEventListener("keydown",e=>{ const r=e.target.closest(".rvrow"); if(r && e.key==="Enter") openRecord(r.dataset.rid); });
 
+/* Results render first; the recordings (the slow part) load afterwards in parallel */
+let audioLoadId=0;
+function loadAudios(kinds, fetchKind, noteEl){
+  const my=++audioLoadId; kinds=kinds||[];
+  if(!kinds.length){ $(noteEl).textContent="這次測驗沒有保存錄音。"; return; }
+  $(noteEl).textContent="錄音載入中…";
+  let left=kinds.length;
+  kinds.forEach(async kind=>{
+    let d=null; try{ d=await fetchKind(kind); }catch(_){}
+    if(my!==audioLoadId) return;
+    if(d && d.ok){
+      const url=URL.createObjectURL(b64Blob(d.data,d.mime));
+      if(kind==="reading"){ S.audioURL=url; $("#audio").src=url; $("#audioBox").hidden=false; }
+      else { S.rURL=url; if(S.retell) renderRetell(P()); }
+    }
+    if(--left===0) $(noteEl).textContent = S.audioURL ? "點「原文與朗讀比對」中的任一個字，錄音會從那裡開始播放。" : "朗讀錄音無法載入。";
+  });
+}
 const b64Blob=(b64,mime)=>{ const s=atob(b64), u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return new Blob([u],{type:mime}); };
 async function openRecord(rid){
   rvMsg("開啟中，錄音較大時需要幾秒…");
@@ -1396,8 +1451,7 @@ async function openRecord(rid){
   if(!d.detail){ rvMsg("這筆測驗沒有保存詳細資料（可能是保存錄音功能上線前的紀錄）。",true); return; }
   const D=d.detail; RV.rec=d.record;
   if(S.audioURL) URL.revokeObjectURL(S.audioURL); if(S.rURL) URL.revokeObjectURL(S.rURL);
-  S.audioURL = d.audio.reading ? URL.createObjectURL(b64Blob(d.audio.reading.data,d.audio.reading.mime)) : null;
-  S.rURL = d.audio.retell ? URL.createObjectURL(b64Blob(d.audio.retell.data,d.audio.retell.mime)) : null;
+  S.audioURL=null; S.rURL=null;
   S.override={passage:D.passage, rules:D.rules};
   S.asr=D.asr; S.retell=D.retell; S.retellStatus=D.retellStatus; S.diag=D.diag;
   renderResults();
@@ -1405,10 +1459,11 @@ async function openRecord(rid){
   $("#tpInfo").textContent=`${R.name}（${R.token}，G${R.grade}）第 ${R.attempt} 次 · ${new Date(R.tested_at).toLocaleString("zh-TW",{hour12:false})} · 文章 ${R.passage}`;
   $("#tpAiWcpm").textContent=R.wcpm; $("#tpAiPros").textContent=R.prosody; $("#tpAiRetell").textContent=R.retell_level===""?"—":R.retell_level;
   $("#tpWcpm").value=v(R.teacher_wcpm); $("#tpPros").value=v(R.teacher_prosody); $("#tpRetell").value=v(R.teacher_retell); $("#tpNote").value=v(R.teacher_note);
+  loadAudios(d.audioKinds, kind=>api({action:"audio"},{key:RV.key, rid, kind}), "#tpAudioNote");
   $("#tpMsg").textContent=""; $("#tpShareMsg").textContent=""; $("#tpLinkRow").hidden=true;
   RV.email=String(R.email||""); $("#tpSend").disabled=!RV.email;
   $("#tpEmailInfo").textContent = (RV.email ? `收件人：${RV.email.split(",").join("、")}` : "名單中沒有這位學生的電子信箱，無法直接寄出（可在名單分頁的電子信箱欄補上）。")
-    + (R.sender ? `　寄件人：${R.sender}` : "") + (R.report_sent ? `　上次寄出：${R.report_sent}` : ""); $("#tpAudioNote").textContent = S.audioURL ? "點原文中的任一個字，錄音會從那裡開始播放。" : "這筆測驗沒有朗讀錄音。";
+    + (R.sender ? `　寄件人：${R.sender}` : "") + (R.report_sent ? `　上次寄出：${R.report_sent}` : ""); 
   $("#review").hidden=true; $("#s3").hidden=false; window.scrollTo({top:0});
 }
 $("#tpBack").onclick=()=>{ $("#s3").hidden=true; $("#review").hidden=false; S.override=null; renderRecords(); };
@@ -1466,15 +1521,14 @@ if(reportSid){
     if(!d.ok){ $("#reportMsg").textContent = d.error==="expired" ? "這個報告連結已過期或已被老師停用。" : "找不到這份報告，請確認連結是否完整。"; return; }
     if(!d.detail){ $("#reportMsg").textContent="這筆測驗沒有保存詳細資料。"; return; }
     const D=d.detail, R=d.record;
-    S.audioURL = d.audio.reading ? URL.createObjectURL(b64Blob(d.audio.reading.data,d.audio.reading.mime)) : null;
-    S.rURL = d.audio.retell ? URL.createObjectURL(b64Blob(d.audio.retell.data,d.audio.retell.mime)) : null;
+    S.audioURL=null; S.rURL=null;
     S.override={passage:D.passage, rules:D.rules}; S.asr=D.asr; S.retell=D.retell; S.retellStatus=D.retellStatus; S.diag=D.diag;
     renderResults();
     $("#rpName").textContent=`${R.name} 的朗讀測驗報告`;
     $("#rpMeta").textContent=`G${R.grade} · 第 ${R.attempt} 次測驗 · ${new Date(R.tested_at).toLocaleString("zh-TW",{hour12:false,year:"numeric",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})} · 連結有效到 ${new Date(d.expires_at).toLocaleDateString("zh-TW")}`;
     $("#rpTitle").textContent=D.passage.title||"";
     $("#rpText").textContent=displayText(D.passage.text);
-    $("#rpAudioNote").textContent = S.audioURL ? "點下方「原文與朗讀比對」中的任一個字，錄音會從那裡開始播放。" : "這次測驗沒有保存朗讀錄音。";
+    loadAudios(d.audioKinds, kind=>api({action:"reportaudio"},{sid:reportSid, kind}), "#rpAudioNote");
     $("#reportMsg").hidden=true; $("#s3").hidden=false;
   })();
 }
