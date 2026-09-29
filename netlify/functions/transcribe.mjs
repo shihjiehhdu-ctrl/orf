@@ -12,7 +12,47 @@ const MAX_BYTES = 4_000_000; // Netlify 同步函式的請求上限約 4.5 MB（
 // 而不是自動整理成通順的句子。刻意不放原文，否則它會更傾向把讀錯的字「聽成」正確的字。
 const PROMPT = "Umm, the, the dog is... is big. The cat, I mean the cap, is red. Uh, let me see.";
 
-import { env, checkStudent } from "../lib/auth.mjs";
+// ---- 身分驗證（通行票優先，其次查詢代碼）；兩個函式各自內建一份，不依賴其他檔案 ----
+import crypto from "node:crypto";
+
+const env = (k) => globalThis.Netlify?.env?.get(k) ?? process.env[k];
+
+function verifyTicket(ticket, token) {
+  const secret = env("TICKET_SECRET");
+  if (!secret || !ticket || !token) return false;
+  const i = ticket.lastIndexOf("."), sig = ticket.slice(i + 1), msg = ticket.slice(0, i);
+  const j = msg.lastIndexOf("."), tk = msg.slice(0, j), exp = Number(msg.slice(j + 1));
+  if (i < 0 || j < 0 || tk !== token || !(exp > Date.now() / 1000)) return false;
+  const good = crypto.createHmac("sha256", secret).update(msg).digest("hex");
+  return good.length === sig.length && crypto.timingSafeEqual(Buffer.from(good), Buffer.from(sig));
+}
+
+/* GET the Apps Script web app with a time limit, retrying once; returns parsed JSON or null */
+async function sheetGet(sheet, params, { ms = 10000, tries = 2 } = {}) {
+  for (let k = 0; k < tries; k++) {
+    try {
+      const r = await fetch(sheet + "?" + new URLSearchParams(params), { signal: AbortSignal.timeout(ms) });
+      const text = await r.text();
+      try { return JSON.parse(text); }
+      catch { console.error(`[sheet] ${params.action} non-JSON (HTTP ${r.status}):`, text.slice(0, 200)); }
+    } catch (e) {
+      console.error(`[sheet] ${params.action} attempt ${k + 1} failed:`, e && e.name);
+    }
+  }
+  return null;
+}
+
+/* Returns { ok:true } or { ok:false, status, error } */
+async function checkStudent(token, ticket) {
+  if (!token) return env("ALLOW_PRACTICE") === "true" ? { ok: true } : { ok: false, status: 403, error: "token_required" };
+  if (verifyTicket(ticket, token)) return { ok: true, via: "ticket" };
+  const sheet = env("SHEET_API");
+  if (!sheet) return { ok: true, via: "no_sheet" };
+  const d = await sheetGet(sheet, { action: "lookup", token });
+  if (!d) return { ok: false, status: 502, error: "roster_unreachable" };
+  return d.ok ? { ok: true, via: "lookup" } : { ok: false, status: 403, error: "bad_token" };
+}
+// ---- 身分驗證結束 ----
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json; charset=utf-8" } });
 
