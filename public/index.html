@@ -1381,7 +1381,7 @@ async function uploadArtifacts(rid, p, rules){
     passage:{id:p.id,title:p.title,grade:p.grade,text:p.text,ideas:p.ideas||""}, rules,
     asr:S.asr, retell:S.retell, retellStatus:S.retellStatus||null, diag:S.diag||null};
   const jobs=[["detail",new Blob([JSON.stringify(detail)],{type:"application/json"})]];
-  if(S.audioBlob && S.asr.engine!=="simulated") jobs.push(["reading",S.audioBlob]);
+  if(S.audioBlob) jobs.push(["reading",S.audioBlob]);
   if(S.rBlob && S.retell && !S.retell.simulated) jobs.push(["retell",S.rBlob]);
   const res=await Promise.all(jobs.map(async ([kind,blob])=>{
     try{ const d=await api({action:"upload"},{token:ST.student.token, rid, kind, mime:(blob.type||"audio/webm").split(";")[0], data:await blobToB64(blob)});
@@ -1434,18 +1434,25 @@ $("#rvTable").addEventListener("keydown",e=>{ const r=e.target.closest(".rvrow")
 let audioLoadId=0;
 function loadAudios(kinds, fetchKind, noteEl){
   const my=++audioLoadId; kinds=kinds||[];
-  if(!kinds.length){ $(noteEl).textContent="這次測驗沒有保存錄音。"; return; }
-  $(noteEl).textContent="錄音載入中…";
-  let left=kinds.length;
+  const note=t=>{ if(my===audioLoadId) $(noteEl).textContent=t; };
+  if(!kinds.includes("reading")) note("這次測驗沒有保存朗讀錄音（可能是保存錄音功能上線前的紀錄，或當時上傳失敗）。");
+  else note("錄音載入中…");
   kinds.forEach(async kind=>{
-    let d=null; try{ d=await fetchKind(kind); }catch(_){}
+    let d=null;
+    for(let k=0;k<2 && !(d&&d.ok);k++){ try{ d=await fetchKind(kind); }catch(_){ d=null; } }   // 失敗自動重試一次
     if(my!==audioLoadId) return;
-    if(d && d.ok){
-      const url=URL.createObjectURL(b64Blob(d.data,d.mime));
-      if(kind==="reading"){ S.audioURL=url; $("#audio").src=url; $("#audioBox").hidden=false; }
-      else { S.rURL=url; if(S.retell) renderRetell(P()); }
+    if(!(d && d.ok)){
+      if(kind==="reading") note(`朗讀錄音讀取失敗（${d&&d.error||"連線中斷"}），請重新整理頁面再試一次。`);
+      return;
     }
-    if(--left===0) $(noteEl).textContent = S.audioURL ? "點「原文與朗讀比對」中的任一個字，錄音會從那裡開始播放。" : "朗讀錄音無法載入。";
+    const blob=b64Blob(d.data,d.mime), url=URL.createObjectURL(blob);
+    if(kind==="reading"){
+      S.audioURL=url; const a=$("#audio");
+      a.onerror=()=>{ if(my!==audioLoadId) return;
+        $(noteEl).innerHTML=`這個瀏覽器無法播放此錄音格式（${esc(d.mime||"未知")}）。<a href="${url}" download="reading">下載錄音</a>後用其他播放器開啟，或改用 Chrome 瀏覽。`; };
+      a.onloadedmetadata=()=>note("點「原文與朗讀比對」中的任一個字，錄音會從那裡開始播放。");
+      a.src=url; $("#audioBox").hidden=false;
+    } else { S.rURL=url; if(S.retell) renderRetell(P()); }
   });
 }
 const b64Blob=(b64,mime)=>{ const s=atob(b64), u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return new Blob([u],{type:mime}); };
