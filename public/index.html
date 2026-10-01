@@ -1338,11 +1338,12 @@ async function api(params, body){
 }
 
 /* 文章：試算表有「文章」分頁就用它，否則用內建的六篇 */
-const passagesReady = API_OK ? api({action:"passages"}).then(d=>{
+function loadPassages(){ return api({action:"passages"}).then(d=>{
   const list=(d && d.ok && Array.isArray(d.passages)) ? d.passages.filter(p=>p && p.text && parse(p.text).length) : [];
   if(list.length){ PASSAGES=list.map(p=>({id:String(p.id), grade:Math.min(6,Math.max(1,+p.grade||1)), title:String(p.title||"（未命名）"), text:String(p.text), ideas:String(p.ideas||"")}));
     PASSAGES.sort((a,b)=>a.grade-b.grade); renderGrid(); }
-}).catch(()=>{}) : Promise.resolve();
+}).catch(()=>{}); }
+const passagesReady = API_OK ? loadPassages() : Promise.resolve();
 
 if(API_OK){ $("#tokenInput").disabled=false; $("#tokenBtn").disabled=false; tokenMsg(""); }
 else tokenMsg("尚未設定學生名單的連線網址（SHEET_API），請直接選文練習。",true);
@@ -1354,10 +1355,16 @@ $("#tokenForm").addEventListener("submit",async e=>{
   try{
     await passagesReady;
     const d=await api({action:"lookup",token:tok});
-    if(!d.ok){ tokenMsg(`找不到代碼 ${tok}，請確認後再輸入，或向老師詢問。`,true); return; }
+    if(!d.ok){
+      if(d.error==="multi_active"){ tokenMsg(`G${d.grade} 有 ${d.ids.length} 篇文章同時設為使用中（${d.ids.join("、")}），請老師在「文章」分頁只保留一篇。`,true); return; }
+      if(d.error==="no_active_passage"){ tokenMsg(`目前沒有設為使用中的 G${d.grade} 文章，請告訴老師。`,true); return; }
+      tokenMsg(`找不到代碼 ${tok}，請確認後再輸入，或向老師詢問。`,true); return; }
     const grade=Math.min(6,Math.max(1,+d.grade||1));
-    const pass=PASSAGES.find(p=>p.grade===grade);
-    if(!pass){ tokenMsg(`目前沒有 G${grade} 的文章，請告訴老師。`,true); return; }
+    /* the server names the passage; if the sheet's list hasn't loaded, fetch it again instead of using the built-in ones */
+    const pid=String(d.passage||"");
+    let pass=pid ? PASSAGES.find(p=>p.id===pid) : PASSAGES.find(p=>p.grade===grade);   // no id = the sheet has no 文章 tab, so the built-in passages apply
+    if(pid && !pass){ await loadPassages(); pass=PASSAGES.find(p=>p.id===pid); }
+    if(!pass){ tokenMsg(pid ? "文章載入失敗，請重新整理頁面再試一次。" : `目前沒有 G${grade} 的文章，請告訴老師。`,true); return; }
     if((d.done||[]).map(x=>String(x).trim()).includes(String(pass.id).trim())){
       tokenMsg(`${d.name||tok}，你已經完成過「${pass.title}」的測驗了，每篇文章只能測一次。如果需要重做，請告訴老師。`,true); return; }
     ST.student={token:tok,name:String(d.name||"（未命名）"),grade,ticket:String(d.ticket||"")};
