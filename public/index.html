@@ -781,7 +781,7 @@ function analyze(words, asr, rules, grade){
   const boundaryRate=sEnds?sPaused/sEnds:1, contourRate=cTot?cOk/cTot:1, midPer100=per100(mid), smoothPer100=per100(rep+sc+hes);
   const normSeason = NORMS[grade][rules.season]!=null ? rules.season : "winter";
   const normV=NORMS[grade][normSeason], paceRatio=wcpm/normV;
-  const dExpr = !cTot ? null : contourRate>=0.9?4:contourRate>=0.7?3:contourRate>=0.45?2:1;
+  const dExpr = cTot<3 ? null : contourRate>=0.8?4:contourRate>=0.6?3:contourRate>=0.4?2:1;  // 句數太少時不計分
   const dPhr = (midPer100<=1&&boundaryRate>=0.85)?4:(midPer100<=3&&boundaryRate>=0.65)?3:midPer100<=7?2:1;
   const dSmo = smoothPer100<=1?4:smoothPer100<=3?3:smoothPer100<=6?2:1;
   const dPace = paceRatio>1.6?3:paceRatio>=0.9?4:paceRatio>=0.75?3:paceRatio>=0.5?2:1;
@@ -1135,32 +1135,56 @@ async function toWav16k(buf){
   for(let i=0;i<n;i++){ const s=Math.max(-1,Math.min(1,x[i])); v.setInt16(44+i*2, s<0?s*32768:s*32767, true); }
   return new Blob([ab],{type:"audio/wav"});
 }
+/* F0 track (Hz, with times) between t0 and t1; unvoiced or unclear frames are left out */
+function f0Track(x, TR, peak, t0, t1){
+  const FR=640, HOP=160, LMIN=Math.floor(TR/600), LMAX=Math.floor(TR/75), out=[];
+  const a=Math.max(0,Math.floor(t0*TR)), b=Math.min(x.length-FR-LMAX-2,Math.floor(t1*TR));
+  for(let s=a;s<b;s+=HOP){ let e=0; for(let k=0;k<FR;k++) e+=x[s+k]*x[s+k]; const rms=Math.sqrt(e/FR);
+    if(rms<peak*0.03) continue;
+    const R=new Float32Array(LMAX+2); let best=0;
+    for(let L=LMIN;L<=LMAX+1;L++){ let c=0,e2=0; for(let k=0;k<FR;k++){ c+=x[s+k]*x[s+k+L]; e2+=x[s+k+L]*x[s+k+L]; }
+      R[L]=c/Math.sqrt(e*e2+1e-12); if(L<=LMAX && R[L]>best) best=R[L]; }
+    /* take the shortest-period peak close to the best one, which avoids octave-down errors */
+    let bl=0; for(let L=LMIN+1;L<=LMAX;L++){ if(R[L]>=0.9*best && R[L]>=R[L-1] && R[L]>=R[L+1]){ bl=L; break; } }
+    if(best>0.5 && bl) out.push({t:(s+FR/2)/TR, f:TR/bl}); }
+  return out;
+}
+/* The last pitch movement of a sentence ending, in semitones.
+   Measured from the highest (or lowest) point before the end, not from the previous word, because a statement's
+   final fall usually happens inside the stressed last word, after a pitch peak on it. */
+function finalMove(track){
+  if(track.length<5) return null;
+  let v=track.map(p=>12*Math.log2(p.f/100));
+  const med=a=>{ const q=[...a].sort((m,n)=>m-n); return q[Math.floor(q.length/2)]; };
+  /* drop octave jumps and other single-frame errors */
+  const keep=v.map((y,i)=>Math.abs(y-med(v.slice(Math.max(0,i-3),i+4)))<=4);
+  v=v.filter((_,i)=>keep[i]); if(v.length<5) return null;
+  const sm=v.map((_,i)=>med(v.slice(Math.max(0,i-1),i+2)));
+  const nEnd=Math.max(2,Math.round(sm.length*0.2)), body=sm.slice(0,sm.length-nEnd);
+  const end=med(sm.slice(-nEnd));
+  let hi=0,lo=0; body.forEach((y,i)=>{ if(y>=body[hi]) hi=i; if(y<=body[lo]) lo=i; });
+  const fall=body[hi]-end, rise=end-body[lo];
+  const F=fall>=CONTOUR_FALL_ST, Rr=rise>=CONTOUR_RISE_ST;
+  const contour = F&&Rr ? (hi>lo?"fall":"rise") : F?"fall" : Rr?"rise" : "flat";
+  const st = contour==="fall"?-fall : contour==="rise"?rise : (fall>rise?-fall:rise);
+  return {contour, st};
+}
+const CONTOUR_FALL_ST=1.0, CONTOUR_RISE_ST=1.5;   // 句尾最後一段音高變化達到幾個半音才算下降／上揚
 function sentenceContours(buf, hyp, refWords){
   const src=buf.getChannelData(0), sr=buf.sampleRate, TR=16000, step=sr/TR;
   const x=new Float32Array(Math.floor(src.length/step));
   for(let i=0;i<x.length;i++){ const a=Math.floor(i*step), b=Math.max(a+1,Math.floor((i+1)*step)); let s=0; for(let k=a;k<b;k++) s+=src[k]; x[i]=s/(b-a); }
   let peak=0; for(let i=0;i<x.length;i+=4) peak=Math.max(peak,Math.abs(x[i]));
-  const FR=640, HOP=160, LMIN=Math.floor(TR/600), LMAX=Math.floor(TR/75);
-  const f0s=(t0,t1)=>{ const out=[]; const a=Math.max(0,Math.floor(t0*TR)), b=Math.min(x.length-FR-LMAX,Math.floor(t1*TR));
-    for(let s=a;s<b;s+=HOP){ let e=0; for(let k=0;k<FR;k++) e+=x[s+k]*x[s+k]; const rms=Math.sqrt(e/FR);
-      if(rms<peak*0.04){ out.push(null); continue; }
-      const R=new Float32Array(LMAX+2); let best=0;
-      for(let L=LMIN;L<=LMAX+1;L++){ let c=0,e2=0; for(let k=0;k<FR;k++){ c+=x[s+k]*x[s+k+L]; e2+=x[s+k+L]*x[s+k+L]; }
-        R[L]=c/Math.sqrt(e*e2+1e-12); if(L<=LMAX && R[L]>best) best=R[L]; }
-      /* take the shortest-period peak close to the best one, which avoids octave-down errors */
-      let bl=0; for(let L=LMIN+1;L<=LMAX;L++){ if(R[L]>=0.9*best && R[L]>=R[L-1] && R[L]>=R[L+1]){ bl=L; break; } }
-      out.push(best>0.55 && bl ? TR/bl : null); }
-    return out; };
-  const med=a=>{ const s=[...a].sort((p,q)=>p-q); return s[Math.floor(s.length/2)]; };
   const pitch=[];
   for(const op of align(refWords.map(w=>w.n), hyp.map(h=>h.word))){
     if(op.type==="ins"||op.type==="del") continue;
     if(refWords[op.i].end!=="sentence") continue;
-    const j=op.j, t0=hyp[Math.max(0,j-1)].start, t1=hyp[j].end;
-    const v=f0s(t0,t1).filter(Boolean); if(v.length<4) continue;
-    const n=Math.max(2,Math.floor(v.length*0.4));
-    const st=12*Math.log2(med(v.slice(-n))/med(v.slice(0,n)));
-    pitch.push({t:hyp[j].end, contour: st<-1.5?"fall":st>1.5?"rise":"flat", f0_change_semitones:+st.toFixed(1)});
+    const j=op.j, h=hyp[j], nx=hyp[j+1];
+    /* Whisper often ends a word a little early and cuts off the final fall, so look up to 0.25 s past it,
+       but never into the next word */
+    const t1=Math.max(h.end, Math.min(h.end+0.25, nx ? nx.start-0.02 : h.end+0.25));
+    const m=finalMove(f0Track(x, TR, peak, hyp[Math.max(0,j-1)].start, t1)); if(!m) continue;
+    pitch.push({t:h.end, contour:m.contour, f0_change_semitones:+m.st.toFixed(1)});
   }
   return pitch;
 }
@@ -1273,7 +1297,7 @@ function renderResults(){
   const pip=n=>`<div class="pips">${[1,2,3,4].map(k=>`<i class="${k<=n?"on":""}"></i>`).join("")}</div>`;
   const dim=(name,en,n,ev)=>`<div class="dim"><div class="head"><span>${name} <span class="muted" style="font-size:12px">${en}</span></span><span class="num">${n==null?"—":n+"/4"}</span></div>${pip(n||0)}<p class="ev">${ev}</p></div>`;
   $("#dims").innerHTML =
-    dim("語調與表情","Expression",d.dExpr, pr.cTot ? `句末音高符合預期 ${pr.cOk}/${pr.cTot} 句（陳述句下降、疑問句上揚）。` : "錄音中找不到足夠清楚的句末音高，這一項不計分。")+
+    dim("語調與表情","Expression",d.dExpr, d.dExpr!=null ? `句末音高符合預期 ${pr.cOk}/${pr.cTot} 句（陳述句下降、疑問句上揚）。` : pr.cTot ? `只找到 ${pr.cTot} 句清楚的句末音高，句數太少，這一項不計分。` : "錄音中找不到足夠清楚的句末音高，這一項不計分。")+
     dim("斷句","Phrasing",d.dPhr,`應停頓處（句末與 //）有停頓 ${pr.sPaused}/${pr.sEnds} 處；詞組中停頓 ${pr.mid} 次（每百字 ${f1(pr.midPer100)}）。`)+
     dim("順暢度","Smoothness",d.dSmo,`重複 ${a.rep}、自我修正 ${a.sc}、長停頓 ${a.hes}，每百字 ${f1(pr.smoothPer100)} 次。`)+
     dim("速度","Pace",d.dPace,`WCPM 為常模的 ${Math.round(pr.paceRatio*100)}%。`);
@@ -1334,6 +1358,8 @@ $("#tokenForm").addEventListener("submit",async e=>{
     const grade=Math.min(6,Math.max(1,+d.grade||1));
     const pass=PASSAGES.find(p=>p.grade===grade);
     if(!pass){ tokenMsg(`目前沒有 G${grade} 的文章，請告訴老師。`,true); return; }
+    if((d.done||[]).map(x=>String(x).trim()).includes(String(pass.id).trim())){
+      tokenMsg(`${d.name||tok}，你已經完成過「${pass.title}」的測驗了，每篇文章只能測一次。如果需要重做，請告訴老師。`,true); return; }
     ST.student={token:tok,name:String(d.name||"（未命名）"),grade,ticket:String(d.ticket||"")};
     $("#stName").textContent=ST.student.name; $("#stGrade").textContent="G"+grade; $("#studentBar").hidden=false;
     $("#tokenInput").value=""; tokenMsg("");
@@ -1361,6 +1387,8 @@ async function saveResult(res){
   for(let k=0;k<2;k++){
     try{
       const d=await api({action:"save"},body);
+      if(!d.ok && d.error==="already_tested"){ m.className="savemsg err";
+        m.textContent="這篇文章你已經測驗過了，每篇只能測一次，所以這次的結果沒有記錄。如果需要重做，請告訴老師。"; return; }
       if(!d.ok) throw new Error(d.error||"save");
       const saved=`已記錄 ${ST.student.name} 第 ${d.attempt||"?"} 次測驗：Accuracy ${body.accuracy}%、WCPM ${body.wcpm}、Prosody ${body.prosody}/4${body.retell?`、理解 ${body.retell.level}/4`:""}。`;
       m.textContent=saved+" 正在保存錄音…";
