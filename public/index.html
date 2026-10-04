@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>ORF 朗讀測驗原型</title>
+<title>中文家庭雙語小孩─ORF 口語閱讀流暢性測驗</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Literata:opsz,wght@7..72,400;7..72,600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
@@ -61,9 +61,6 @@ header.top .sub{color:var(--muted);font-size:13.5px;margin-top:4px}
 .steps li.on b{background:var(--accent);color:var(--accent-ink)}
 .steps li.done b{background:var(--accent-soft);color:var(--accent)}
 
-/* prototype strip */
-.proto{border:1.5px dashed var(--line);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;font-size:13.5px;background:var(--sunk)}
-.proto .tag{font:500 11px var(--mono);letter-spacing:.06em;color:var(--warn);border:1px solid currentColor;border-radius:4px;padding:1px 6px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
 .seg label{position:relative;cursor:pointer}
 .seg input{position:absolute;opacity:0;inset:0;cursor:pointer}
@@ -100,6 +97,7 @@ header.top .sub{color:var(--muted);font-size:13.5px;margin-top:4px}
 .meter{width:120px;height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}
 .meter i{display:block;height:100%;width:0;background:var(--sc);transition:width .08s}
 .note{font-size:13px;color:var(--muted)}
+.note.err{color:var(--omit);font-weight:500}
 .progress{display:flex;flex-direction:column;gap:10px;max-width:420px}
 .progress .bar{height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}
 .progress .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
@@ -209,7 +207,7 @@ footer{font-size:12.5px;color:var(--muted);line-height:1.6}
 .teacherpanel{display:none}
 .reporthead{display:none}
 body.reportmode .reporthead{display:block}
-body.reportmode .proto, body.reportmode #steps, body.reportmode #studentBar, body.reportmode #saveMsg, body.reportmode #againBtn,
+body.reportmode #steps, body.reportmode #studentBar, body.reportmode #saveMsg, body.reportmode #againBtn,
 body.reportmode #newSimBtn, body.reportmode #otherBtn, body.reportmode .ruleCtl, body.reportmode details, body.reportmode #diag{display:none!important}
 body.reportmode .rulesFixed{display:block}
 body.reportmode #audioBox > p.note{display:none}
@@ -218,7 +216,7 @@ body.reportmode header.top .sub{display:none}
 .linkrow{display:flex;gap:8px;max-width:640px}
 .linkrow input{flex:1;min-width:0;border:1px solid var(--line);background:var(--ground);border-radius:8px;padding:8px 10px;font:13px var(--mono);color:inherit}
 body.reviewmode .teacherpanel{display:block}
-body.reviewmode .proto, body.reviewmode #steps, body.reviewmode #studentBar, body.reviewmode #saveMsg, body.reviewmode s3 .actions,
+body.reviewmode #steps, body.reviewmode #studentBar, body.reviewmode #saveMsg, body.reviewmode s3 .actions,
 body.reviewmode #againBtn, body.reviewmode #newSimBtn, body.reviewmode #otherBtn, body.reviewmode .ruleCtl{display:none!important}
 body.reviewmode .rulesFixed{display:block}
 .filter{margin-top:14px;width:100%;max-width:360px;border:1px solid var(--line);background:var(--ground);border-radius:9px;padding:8px 12px;font:inherit}
@@ -232,8 +230,7 @@ body.reviewmode .rulesFixed{display:block}
 #marked [data-t]:hover{background:var(--accent-soft)}
 #miscues tr[data-t]{cursor:pointer}
 
-body.stmode #backBtn, body.stmode #otherBtn{display:none}
-body.src-whisper .simonly{display:none}
+body.stmode #backBtn, body.stmode #otherBtn, body.stmode #useSimBtn, body.stmode #demoBtn{display:none}
 .retellcard{margin-top:14px;padding:18px 20px;border-radius:10px;background:var(--accent-soft);display:flex;flex-direction:column;gap:8px}
 .retellprompt{font:600 clamp(20px,2.6vw,26px)/1.35 var(--read);color:var(--ink)}
 .retellhint{font:500 16px var(--read);color:var(--accent);flex-basis:100%;min-height:1.4em}
@@ -269,7 +266,7 @@ body.stmode .ruleCtl{display:none}
 <div class="wrap">
   <header class="top">
     <div>
-      <h1>ORF 朗讀流暢度測驗</h1>
+      <h1>中文家庭雙語小孩─ORF 口語閱讀流暢性測驗</h1>
       <p class="sub">選一篇短文 → 錄音朗讀 → 分析 Accuracy、WCPM、Prosody，並逐字比對</p>
     </div>
     <ol class="steps" id="steps" aria-label="測驗步驟">
@@ -279,23 +276,6 @@ body.stmode .ruleCtl{display:none}
       <li data-s="4"><b>4</b>分析結果</li>
     </ol>
   </header>
-
-  <div class="proto" role="group" aria-label="原型控制">
-    <span class="tag">原型控制</span>
-    <span>辨識來源</span>
-    <div class="seg" id="srcSeg">
-      <label><input type="radio" name="src" id="src-whisper" value="whisper" checked><span>Whisper</span></label>
-      <label><input type="radio" name="src" id="src-sim" value="sim"><span>模擬</span></label>
-    </div>
-    <span class="simonly">模擬讀者表現</span>
-    <div class="seg simonly" id="profileSeg">
-      <label><input type="radio" name="profile" id="pf-fluent" value="fluent"><span>流暢</span></label>
-      <label><input type="radio" name="profile" id="pf-typical" value="typical" checked><span>一般</span></label>
-      <label><input type="radio" name="profile" id="pf-struggling" value="struggling"><span>吃力</span></label>
-    </div>
-    <span class="muted simonly">隨機種子 <span class="num" id="seedOut"></span></span>
-    <span class="muted" style="flex-basis:100%;font-size:12.5px"><span id="srcNote">Whisper：錄音上傳後由 OpenAI whisper-1 辨識，句末語調由瀏覽器分析錄音音高。選「模擬」則不上傳錄音，改用程式產生的結果。</span></span>
-  </div>
 
   <div class="student" id="studentBar" hidden>
     <span class="label">學生</span>
@@ -337,7 +317,7 @@ body.stmode .ruleCtl{display:none}
     <div class="reading" id="p2text"></div>
     <div class="recbar" id="recIdle">
       <button class="btn primary big" id="startBtn" type="button">開始朗讀</button>
-      <p class="note">按下開始後錄音，請孩子從第一個字讀起；讀完後按「結束」。</p>
+      <p class="note" id="recIdleNote">按下開始後錄音，請孩子從第一個字讀起；讀完後按「結束」。</p>
       <button class="linkbtn" id="backBtn" type="button" style="margin-left:auto">換一篇</button>
     </div>
     <div class="recbar" id="recLive" hidden>
@@ -802,7 +782,6 @@ const getRules=()=> (S.override && S.override.rules) ? {...S.override.rules} : (
   season:document.querySelector('input[name="season"]:checked').value
 });
 const P=()=> (S.override && S.override.passage) || PASSAGES.find(p=>String(p.id)===String(S.pid));
-$("#seedOut").textContent=S.seed;
 
 function setStep(n){
   ["s1","s2","sR","s3"].forEach((id,k)=>{ $("#"+id).hidden = (k+1)!==n; });
@@ -820,9 +799,7 @@ renderGrid();
 $("#pgrid").addEventListener("click",e=>{ const b=e.target.closest(".pcard"); if(b) openPassage(b.dataset.id); });
 $("#demoBtn").onclick=()=>{ S.pid=(PASSAGES.find(p=>p.grade===3)||PASSAGES[0]).id; setProfile("typical"); S.asr=simulate(parse(P().text),P().grade,S.profile,S.seed); S.audioURL=null; S.retell=simulateRetell(P()); S.retellStatus=null; renderResults(); setStep(4); };
 
-function setProfile(v){ S.profile=v; $("#pf-"+v).checked=true; }
-document.querySelectorAll('input[name="profile"]').forEach(r=>r.addEventListener("change",()=>{
-  S.profile=r.value; if(!$("#s3").hidden && S.asr?.engine==="simulated"){ S.asr=simulate(parse(P().text),P().grade,S.profile,S.seed); renderResults(); } }));
+function setProfile(v){ S.profile=v; }
 
 /* step 2 */
 function openPassage(id){
@@ -830,15 +807,14 @@ function openPassage(id){
   $("#p2grade").textContent="G"+p.grade; $("#p2title").textContent=p.title; $("#p2count").textContent=w.length+" 字";
   $("#p2text").textContent=displayText(p.text);
   $("#recIdle").hidden=false; $("#recLive").hidden=true; $("#recUp").hidden=true;
+  $("#recIdleNote").textContent="按下開始後錄音，請孩子從第一個字讀起；讀完後按「結束」。"; $("#recIdleNote").classList.remove("err");
   setStep(2);
 }
 $("#backBtn").onclick=()=>setStep(1);
 
 /* ---------- Recording ---------- */
 const TRANSCRIBE_API = "/api/transcribe";
-const srcNow=()=>document.querySelector('input[name="src"]:checked').value;
-function syncSrc(){ document.body.classList.toggle("src-whisper",srcNow()==="whisper"); }
-document.querySelectorAll('input[name="src"]').forEach(r=>r.addEventListener("change",syncSrc)); syncSrc();
+const srcNow=()=>"whisper";   // no source switch any more: recordings always go to real recognition
 
 let rec=null, stream=null, chunks=[], tStart=0, tick=null, actx=null, raf=null;
 $("#startBtn").onclick=async()=>{
@@ -856,6 +832,10 @@ $("#startBtn").onclick=async()=>{
         $("#meter").style.width=Math.min(100,Math.sqrt(s/buf.length)*400)+"%"; raf=requestAnimationFrame(loop); }; loop();
     }catch(_){}
   }catch(err){
+    if(ST.student){   /* a roster student never gets a simulated score: no microphone, no test */
+      rec=null; $("#recLive").hidden=true; $("#recIdle").hidden=false;
+      $("#recIdleNote").textContent="無法使用麥克風，所以還不能開始測驗。請允許這個網頁使用麥克風（點網址列左邊的圖示），再按一次「開始朗讀」。";
+      $("#recIdleNote").classList.add("err"); return; }
     S.recMode="sim"; rec=null;
     $("#recNote").textContent="無法使用麥克風（可能被拒絕存取），現在只計時。這次只能用模擬結果。";
   }
@@ -877,11 +857,13 @@ $("#stopBtn").onclick=async()=>{
     if(actx) actx.close();
     if(chunks.length){ S.audioBlob=new Blob(chunks,{type:rec.mimeType||"audio/webm"}); S.audioURL=URL.createObjectURL(S.audioBlob); } }
   $("#recLive").hidden=true; $("#recUp").hidden=false;
-  if(srcNow()==="whisper" && S.audioBlob) runWhisper(); else runSim();
+  if(S.audioBlob) runWhisper();
+  else if(ST.student){ setUpSteps([]); upFail("沒有錄到聲音，請按「重新錄音」再讀一次。"); }
+  else runSim();   // free practice without a microphone: simulated result
 };
 $("#retryUpBtn").onclick=()=>runWhisper();
 $("#reRecBtn").onclick=()=>openPassage(S.pid);
-$("#useSimBtn").onclick=()=>runSim();
+$("#useSimBtn").onclick=()=>{ if(!ST.student) runSim(); };
 
 async function runSim(){
   setUpSteps(["產生模擬辨識結果","原文與朗讀內容對齊","計算 Accuracy、WCPM、Prosody"]);
@@ -940,7 +922,7 @@ function finish(){
 }
 function showResults(){
   const res=renderResults(); setStep(4);
-  if(ST.student) saveResult(res); else $("#saveMsg").hidden=true;
+  if(ST.student && S.asr.engine!=="simulated") saveResult(res); else $("#saveMsg").hidden=true;
 }
 
 /* ---------- Overall verdict: reader profile (checked in order; the first gap found is the one to teach first) ---------- */
@@ -1191,9 +1173,9 @@ function sentenceContours(buf, hyp, refWords){
 
 /* step 3 */
 ["tm-whole","tm-60","t0-first","t0-press","rHes","rIns","se-fall","se-winter","se-spring","vAllPause","vPhrase"].forEach(id=>$("#"+id).addEventListener("change",renderResults));
-$("#againBtn").onclick=()=>{ S.seed++; $("#seedOut").textContent=S.seed; openPassage(S.pid); };
-$("#newSimBtn").onclick=()=>{ S.seed++; $("#seedOut").textContent=S.seed; S.asr=simulate(parse(P().text),P().grade,S.profile,S.seed); renderResults(); };
-$("#otherBtn").onclick=()=>{ S.seed++; $("#seedOut").textContent=S.seed; setStep(1); };
+$("#againBtn").onclick=()=>{ S.seed++; openPassage(S.pid); };
+$("#newSimBtn").onclick=()=>{ S.seed++; S.asr=simulate(parse(P().text),P().grade,S.profile,S.seed); renderResults(); };
+$("#otherBtn").onclick=()=>{ S.seed++; setStep(1); };
 
 const f1=x=>x.toFixed(1), pct=x=>(x*100).toFixed(1);
 const fmtT=s=>s==null?"—":s.toFixed(2)+"s";
