@@ -796,14 +796,18 @@ function setStep(n){
 }
 
 /* step 1 */
-function renderGrid(){ $("#pgrid").innerHTML = PASSAGES.map(p=>{ const w=parse(p.text).length;
+const practiceList=()=>PASSAGES.filter(p=>p.use!=="student");   // built-in passages have no "use" and count as practice
+function renderGrid(){ const list=practiceList();
+  if(!list.length){ $("#pgrid").innerHTML='<p class="note">目前沒有開放自由練習的文章，請輸入學生代碼開始測驗。</p>'; $("#demoBtn").hidden=true; return; }
+  $("#demoBtn").hidden=false;
+  $("#pgrid").innerHTML = list.map(p=>{ const w=parse(p.text).length;
   return `<button class="pcard" type="button" data-id="${p.id}">
     <div class="row"><span class="grade">G${p.grade}</span><span class="muted num" style="font-size:12.5px">#${esc(p.id)} · ${w} 字</span></div>
     <span class="t">${esc(p.title)}</span>
     <span class="ex">${esc(displayText(p.text))}</span></button>`; }).join(""); }
 renderGrid();
 $("#pgrid").addEventListener("click",e=>{ const b=e.target.closest(".pcard"); if(b) openPassage(b.dataset.id); });
-$("#demoBtn").onclick=()=>{ S.pid=(PASSAGES.find(p=>p.grade===3)||PASSAGES[0]).id; setProfile("typical"); S.asr=simulate(parse(P().text),P().grade,S.profile,S.seed); S.audioURL=null; S.retell=simulateRetell(P()); S.retellStatus=null; renderResults(); setStep(4); };
+$("#demoBtn").onclick=()=>{ const L=practiceList(); S.pid=(L.find(p=>p.grade===3)||L[0]).id; setProfile("typical"); S.asr=simulate(parse(P().text),P().grade,S.profile,S.seed); S.audioURL=null; S.retell=simulateRetell(P()); S.retellStatus=null; renderResults(); setStep(4); };
 
 function setProfile(v){ S.profile=v; }
 
@@ -1330,7 +1334,8 @@ async function api(params, body){
 /* 文章：試算表有「文章」分頁就用它，否則用內建的六篇 */
 function loadPassages(){ return api({action:"passages"}).then(d=>{
   const list=(d && d.ok && Array.isArray(d.passages)) ? d.passages.filter(p=>p && p.text && parse(p.text).length) : [];
-  if(list.length){ PASSAGES=list.map(p=>({id:String(p.id), grade:Math.min(6,Math.max(1,+p.grade||1)), title:String(p.title||"（未命名）"), text:String(p.text), ideas:String(p.ideas||"")}));
+  /* use: "student" = the test passage shown after login; "practice" = offered to visitors without a code */
+  if(list.length || (d && d.ok && d.hasSheet)){ PASSAGES=list.map(p=>({id:String(p.id), grade:Math.min(6,Math.max(1,+p.grade||1)), title:String(p.title||"（未命名）"), text:String(p.text), ideas:String(p.ideas||""), use:String(p.use||"both")}));
     PASSAGES.sort((a,b)=>a.grade-b.grade); renderGrid(); }
 }).catch(()=>{}); }
 const passagesReady = API_OK ? loadPassages() : Promise.resolve();
@@ -1352,7 +1357,7 @@ $("#tokenForm").addEventListener("submit",async e=>{
     const grade=Math.min(6,Math.max(1,+d.grade||1));
     /* the server names the passage; if the sheet's list hasn't loaded, fetch it again instead of using the built-in ones */
     const pid=String(d.passage||"");
-    let pass=pid ? PASSAGES.find(p=>p.id===pid) : PASSAGES.find(p=>p.grade===grade);   // no id = the sheet has no 文章 tab, so the built-in passages apply
+    let pass=pid ? PASSAGES.find(p=>p.id===pid) : PASSAGES.find(p=>p.grade===grade && p.use!=="practice");   // no id = the sheet has no 文章 tab, so the built-in passages apply
     if(pid && !pass){ await loadPassages(); pass=PASSAGES.find(p=>p.id===pid); }
     if(!pass){ tokenMsg(pid ? "文章載入失敗，請重新整理頁面再試一次。" : `目前沒有 G${grade} 的文章，請告訴老師。`,true); return; }
     if((d.done||[]).map(x=>String(x).trim()).includes(String(pass.id).trim())){
