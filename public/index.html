@@ -231,6 +231,7 @@ body.reviewmode .rulesFixed{display:block}
 #miscues tr[data-t]{cursor:pointer}
 
 body.stmode #backBtn, body.stmode #otherBtn, body.stmode #useSimBtn, body.stmode #demoBtn{display:none}
+body.stmode:not(.savefail) #againBtn{display:none}   /* one test per passage; a retake is offered only if the score could not be saved */
 .retellcard{margin-top:14px;padding:18px 20px;border-radius:10px;background:var(--accent-soft);display:flex;flex-direction:column;gap:8px}
 .retellprompt{font:600 clamp(20px,2.6vw,26px)/1.35 var(--read);color:var(--ink)}
 .retellhint{font:500 16px var(--read);color:var(--accent);flex-basis:100%;min-height:1.4em}
@@ -504,7 +505,7 @@ body.stmode .ruleCtl{display:none}
               <li>只計前 60 秒</li>
               <li>停頓超過 3 秒算錯</li>
               <li>插入字不算錯；自我修正與重複也不算錯</li>
-              <li>常模：Hasbrouck &amp; Tindal (2017) 秋季第 50 百分位（G1 無秋季常模，改用冬季）</li>
+              <li>常模：Hasbrouck &amp; Tindal (2017) 秋季第 <span id="fixedPct">75</span> 百分位（G1 無秋季常模，改用冬季）</li>
             </ul>
           </div>
           <p class="note ruleCtl" style="margin:4px 0 12px">修改後會立即重新計算。</p>
@@ -532,7 +533,7 @@ body.stmode .ruleCtl{display:none}
                 <label><input type="radio" name="season" id="se-winter" value="winter"><span>冬季</span></label>
                 <label><input type="radio" name="season" id="se-spring" value="spring" checked><span>春季</span></label>
               </div>
-              <small class="muted" style="font-size:12px">Hasbrouck &amp; Tindal (2017) 第 50 百分位 WCPM</small>
+              <small class="muted" style="font-size:12px">Hasbrouck &amp; Tindal (2017) 第 75 百分位 WCPM</small>
             </div>
           </div>
           <div class="warnbox" id="normWarn" style="margin-top:12px"></div>
@@ -587,9 +588,13 @@ const DEFAULT_PASSAGES = [
  {id:"G5-01", grade:5, title:"Volcanoes", text:"Deep beneath the Earth’s surface, / it is so hot / that some rock melts / into a thick liquid called magma. / Because magma is lighter / than the solid rock around it, / it slowly rises / and collects in underground chambers. / When enough pressure builds up, / the magma forces its way / through cracks in the crust / and bursts out of a volcano. / Once it reaches the surface, / it is called lava. / Some volcanoes explode violently, / throwing ash and rock / high into the sky, / while others let lava flow out / gently like a river. / Although eruptions can be dangerous, / volcanoes also create new land. / The Hawaiian Islands, / for example, / were formed by volcanoes / rising from the ocean floor / over millions of years.", ideas:"Volcanoes form when melted rock from deep underground rises and breaks through the surface, and they can also build new land.\nDeep underground it is so hot that rock melts into magma.\nMagma is lighter than solid rock, so it rises and collects underground.\nPressure pushes magma through cracks and out of a volcano.\nAt the surface it is called lava.\nSome volcanoes explode with ash and rock; others let lava flow gently.\nEruptions are dangerous but also create new land.\nThe Hawaiian Islands were formed by volcanoes over millions of years."},
  {id:"G6-01", grade:6, title:"The Power of Sleep", text:"Scientists once believed / that the brain simply switched off / during sleep, / but we now know / that it stays remarkably busy. / While you sleep, / your brain sorts through / the information you collected during the day, / deciding which memories to keep / and which to throw away. / This is one reason / students who sleep well / before a test / often remember more / than those who stay up late studying. / Sleep also gives the body / a chance to repair muscles / and strengthen the immune system, / which helps fight off illness. / Most children and teenagers / need between nine and eleven hours / of sleep each night, / yet many get far less. / Bright screens are partly to blame, / because their light / tricks the brain into thinking / it is still daytime, / making it harder to fall asleep. / Turning off devices an hour before bed / can make a real difference.", ideas:"Sleep is an active and important time when the brain and body do important work.\nScientists used to think the brain switched off during sleep, but it stays busy.\nDuring sleep the brain sorts the day's information and decides which memories to keep.\nStudents who sleep well before a test often remember more.\nSleep helps the body repair muscles and strengthens the immune system.\nChildren and teens need nine to eleven hours of sleep, but many get less.\nScreen light tricks the brain into thinking it is daytime, making sleep harder.\nTurning off devices an hour before bed can help."}
 ];
-/* Hasbrouck & Tindal (2017), 50th percentile WCPM */
+/* Hasbrouck & Tindal (2017) WCPM norms, 75th and 50th percentile. New tests compare against NORM_PCT;
+   records saved before the change carry no pct in their rules and keep the 50th. */
 let PASSAGES = DEFAULT_PASSAGES;
-const NORMS = {1:{fall:null,winter:29,spring:60},2:{fall:50,winter:84,spring:100},3:{fall:83,winter:97,spring:112},4:{fall:94,winter:120,spring:133},5:{fall:121,winter:133,spring:146},6:{fall:132,winter:145,spring:146}};
+const NORM_PCT = 75;
+const NORM_TABLE = {
+  75:{1:{fall:null,winter:59,spring:91},2:{fall:84,winter:109,spring:124},3:{fall:104,winter:137,spring:139},4:{fall:125,winter:143,spring:160},5:{fall:153,winter:160,spring:169},6:{fall:159,winter:166,spring:173}},
+  50:{1:{fall:null,winter:29,spring:60},2:{fall:50,winter:84,spring:100},3:{fall:83,winter:97,spring:112},4:{fall:94,winter:120,spring:133},5:{fall:121,winter:133,spring:146},6:{fall:132,winter:145,spring:146}}};
 const SEASON_ZH = {fall:"秋季",winter:"冬季",spring:"春季"};
 
 /* ---------- Text handling ---------- */
@@ -759,6 +764,7 @@ function analyze(words, asr, rules, grade){
     contours[k]={...p,exp,ok}; }
   const per100=x=>A?x/A*100:0;
   const boundaryRate=sEnds?sPaused/sEnds:1, contourRate=cTot?cOk/cTot:1, midPer100=per100(mid), smoothPer100=per100(rep+sc+hes);
+  const normPct = NORM_TABLE[rules.pct] ? rules.pct : 50, NORMS = NORM_TABLE[normPct];
   const normSeason = NORMS[grade][rules.season]!=null ? rules.season : "winter";
   const normV=NORMS[grade][normSeason], paceRatio=wcpm/normV;
   const dExpr = cTot<3 ? null : contourRate>=0.8?4:contourRate>=0.6?3:contourRate>=0.4?2:1;  // 句數太少時不計分
@@ -767,19 +773,19 @@ function analyze(words, asr, rules, grade){
   const dPace = paceRatio>1.6?3:paceRatio>=0.9?4:paceRatio>=0.75?3:paceRatio>=0.5?2:1;
   let naep = dPhr===4&&(dExpr??3)>=3?4:dPhr>=3?3:dPhr===2?2:1; if(dPace===1) naep=Math.min(naep,2);
   return {R,post,hyp,A,elapsed,t0,omit,sub,hes,ins,rep,sc,errors,correct,accuracy,wcpm,
-    pros:{sEnds,sPaused,runOn,mid,midList,cTot,cOk,contours,boundaryRate,contourRate,midPer100,smoothPer100,paceRatio,normV,normSeason,dims:{dExpr,dPhr,dSmo,dPace},naep}};
+    pros:{sEnds,sPaused,runOn,mid,midList,cTot,cOk,contours,boundaryRate,contourRate,midPer100,smoothPer100,paceRatio,normV,normSeason,normPct,dims:{dExpr,dPhr,dSmo,dPace},naep}};
 }
 
 /* ---------- State & UI ---------- */
 const $=s=>document.querySelector(s);
 const S={pid:null, seed:20260926, profile:"typical", asr:null, audioURL:null, audioBlob:null, recMode:null};
 /* students on the roster are always scored with one fixed rule set, so their results stay comparable */
-const FIXED_RULES={timing:"oneMin", t0:"firstWord", hes3:true, insCount:false, season:"fall"};
+const FIXED_RULES={timing:"oneMin", t0:"firstWord", hes3:true, insCount:false, season:"fall", pct:NORM_PCT};
 const getRules=()=> (S.override && S.override.rules) ? {...S.override.rules} : (typeof ST!=="undefined" && ST.student) ? {...FIXED_RULES} : ({
   timing:document.querySelector('input[name="timing"]:checked').value,
   t0:document.querySelector('input[name="t0"]:checked').value,
   hes3:$("#rHes").checked, insCount:$("#rIns").checked,
-  season:document.querySelector('input[name="season"]:checked').value
+  season:document.querySelector('input[name="season"]:checked').value, pct:NORM_PCT
 });
 const P=()=> (S.override && S.override.passage) || PASSAGES.find(p=>String(p.id)===String(S.pid));
 
@@ -807,6 +813,7 @@ function openPassage(id){
   $("#p2grade").textContent="G"+p.grade; $("#p2title").textContent=p.title; $("#p2count").textContent=w.length+" 字";
   $("#p2text").textContent=displayText(p.text);
   $("#recIdle").hidden=false; $("#recLive").hidden=true; $("#recUp").hidden=true;
+  document.body.classList.remove("savefail");
   $("#recIdleNote").textContent="按下開始後錄音，請孩子從第一個字讀起；讀完後按「結束」。"; $("#recIdleNote").classList.remove("err");
   setStep(2);
 }
@@ -1173,7 +1180,7 @@ function sentenceContours(buf, hyp, refWords){
 
 /* step 3 */
 ["tm-whole","tm-60","t0-first","t0-press","rHes","rIns","se-fall","se-winter","se-spring","vAllPause","vPhrase"].forEach(id=>$("#"+id).addEventListener("change",renderResults));
-$("#againBtn").onclick=()=>{ S.seed++; openPassage(S.pid); };
+$("#againBtn").onclick=()=>{ if(ST.student && !document.body.classList.contains("savefail")) return; S.seed++; openPassage(S.pid); };
 $("#newSimBtn").onclick=()=>{ S.seed++; S.asr=simulate(parse(P().text),P().grade,S.profile,S.seed); renderResults(); };
 $("#otherBtn").onclick=()=>{ S.seed++; setStep(1); };
 
@@ -1189,6 +1196,7 @@ function renderResults(){
 
   const accBand = a.accuracy>=0.97?["good","獨立閱讀程度（≥ 97%）"]:a.accuracy>=0.90?["mid","教學程度（90–96%）"]:["bad","挫折程度（< 90%）"];
   const ratio=Math.min(1.4,a.wcpm/pr.normV)/1.4;
+  $("#fixedPct").textContent=pr.normPct;
   const naepChip = pr.naep>=3?["good","流暢範圍"]:["mid","未達流暢"];
   const d=pr.dims, mfs=(d.dExpr??0)+d.dPhr+d.dSmo+d.dPace, mfsMax=d.dExpr==null?12:16;
   const prof=readerProfile(a, pr, S.retell); S.lastProfile=prof;
@@ -1203,7 +1211,7 @@ function renderResults(){
      <span class="d num">${a.correct} 正確 / ${a.A} 嘗試 · 錯誤 ${a.errors}</span></div>
    <div class="stat"><span class="label">WCPM</span><span class="v">${Math.round(a.wcpm)}<small>字/分</small></span>
      <div class="normbar" aria-label="與常模比較"><i style="width:${ratio*100}%"></i><b style="left:${(1/1.4)*100}%"></b></div>
-     <span class="d">常模 <span class="num">${pr.normV}</span>（G${p.grade} ${SEASON_ZH[pr.normSeason]} P50）${pr.normSeason!==rules.season?"；G1 無秋季常模，改用冬季":""}</span></div>
+     <span class="d">常模 <span class="num">${pr.normV}</span>（G${p.grade} ${SEASON_ZH[pr.normSeason]} P${pr.normPct}）${pr.normSeason!==rules.season?"；G1 無秋季常模，改用冬季":""}</span></div>
    <div class="stat"><span class="label">Prosody（NAEP）</span><span class="v">${pr.naep}<small>/ 4</small></span>
      <span class="chip ${naepChip[0]}">${naepChip[1]}</span>
      <span class="d num">MFS 總分 ${mfs} / ${mfsMax}${d.dExpr==null?"（語調無法分析）":""}</span></div>
@@ -1357,7 +1365,7 @@ $("#tokenForm").addEventListener("submit",async e=>{
   }catch(err){ tokenMsg("暫時無法連線學生名單，請稍後再試。",true); }
   finally{ $("#tokenBtn").disabled=false; }
 });
-$("#logoutBtn").onclick=()=>{ ST.student=null; $("#studentBar").hidden=true; document.body.classList.remove("stmode"); $("#saveMsg").hidden=true; setStep(1); };
+$("#logoutBtn").onclick=()=>{ ST.student=null; $("#studentBar").hidden=true; document.body.classList.remove("stmode","savefail"); $("#saveMsg").hidden=true; setStep(1); };
 
 async function saveResult(res){
   const m=$("#saveMsg"); m.hidden=false; m.className="savemsg"; m.textContent="正在寫入成績…";
@@ -1367,7 +1375,7 @@ async function saveResult(res){
     accuracy:+(a.accuracy*100).toFixed(1), wcpm:Math.round(a.wcpm), prosody:pr.naep,
     mfs:(pr.dims.dExpr??0)+pr.dims.dPhr+pr.dims.dSmo+pr.dims.dPace, mfs_max:pr.dims.dExpr==null?12:16,
     words_attempted:a.A, errors:a.errors, seconds:+a.elapsed.toFixed(1),
-    norm:`${pr.normSeason} ${pr.normV}`, profile:(S.lastProfile||{}).label||"",
+    norm:`${pr.normSeason} P${pr.normPct} ${pr.normV}`, profile:(S.lastProfile||{}).label||"",
     retell: S.retell ? {level:S.retell.level, recall:S.retell.recall, units:`${S.retell.full}+${S.retell.partial}/${S.retell.total}`,
       sequence:S.retell.sequence, misconceptions:S.retell.misconceptions||[], words:S.retell.words,
       verbatim:!!S.retell.verbatim, note_zh:S.retell.note_zh||"", transcript:S.retell.transcript||""} : null,
@@ -1386,7 +1394,7 @@ async function saveResult(res){
       return;
     }catch(err){
       if(k===0){ await new Promise(r=>setTimeout(r,800)); continue; }
-      m.className="savemsg err"; m.textContent="成績沒有寫入成功，請再測一次或告訴老師。"; return;
+      m.className="savemsg err"; m.textContent="成績沒有寫入成功，請再測一次或告訴老師。"; document.body.classList.add("savefail"); return;
     }
   }
 }
