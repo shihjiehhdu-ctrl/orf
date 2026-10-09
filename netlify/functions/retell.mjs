@@ -148,7 +148,7 @@ export default async (req) => {
   let form;
   try { form = await req.formData(); } catch { return json({ ok: false, error: "bad_form" }, 400); }
   const audio = form.get("audio");
-  const token = String(form.get("token") || "").trim().toUpperCase();
+  const token = String(form.get("token") || "").trim();   // case-sensitive
   const ticket = String(form.get("ticket") || "");
   const pid = String(form.get("passage") || "");
   if (!audio || typeof audio === "string") return json({ ok: false, error: "no_audio" }, 400);

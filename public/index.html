@@ -182,7 +182,7 @@ footer{font-size:12.5px;color:var(--muted);line-height:1.6}
 .tokenbox{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;padding-bottom:4px}
 .tokenbox>div{flex:1 1 260px}
 .tokenform{display:flex;gap:8px;flex:0 1 360px;min-width:0}
-.tokenform input{flex:1;min-width:0;border:1px solid var(--line);background:var(--ground);border-radius:9px;padding:9px 12px;font:500 16px var(--mono);letter-spacing:.04em;text-transform:uppercase}
+.tokenform input{flex:1;min-width:0;border:1px solid var(--line);background:var(--ground);border-radius:9px;padding:9px 12px;font:500 16px var(--mono);letter-spacing:.04em}
 .tokenform input::placeholder{text-transform:none;letter-spacing:0;color:var(--muted);font-family:var(--sans);font-weight:400}
 .tokenform input:focus{border-color:var(--accent);outline:none}
 #tokenMsg{flex-basis:100%}
@@ -295,7 +295,7 @@ body.stmode .ruleCtl{display:none}
       </div>
       <form id="tokenForm" class="tokenform" autocomplete="off">
         <label for="tokenInput" class="label" style="position:absolute;left:-9999px">學生代碼</label>
-        <input id="tokenInput" type="text" inputmode="text" placeholder="例如 DEMO-01" disabled>
+        <input id="tokenInput" type="text" inputmode="text" placeholder="代碼有分大小寫" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" disabled>
         <button class="btn primary" id="tokenBtn" type="submit" disabled>開始</button>
       </form>
       <p class="note" id="tokenMsg" role="status">正在連線學生名單…</p>
@@ -1319,7 +1319,7 @@ const SHEET_API = (window.ORF_CONFIG && window.ORF_CONFIG.SHEET_API) || "";
 
 const ST={student:null};
 const API_OK = /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(SHEET_API);
-const normTok=t=>String(t??"").trim().toUpperCase();
+const normTok=t=>String(t??"").trim();   // tokens are case-sensitive
 function tokenMsg(t,err){ const el=$("#tokenMsg"); el.textContent=t; el.classList.toggle("err",!!err); }
 
 async function api(params, body){
