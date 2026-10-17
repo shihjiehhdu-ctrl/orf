@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ORF 口語閱讀流暢性測驗｜中文家庭雙語小孩</title>
+<meta name="description" content="讓孩子朗讀一篇短文、再用英文說說讀到了什麼，一次看見孩子讀得準不準、順不順、有沒有讀懂。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Huninn&family=Iansui&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<script src="config.js"></script>
+<style>
+:root{
+  --ink:#1F1F1F; --muted:#5b5b5b; --paper:#ffffff;
+  --teal:#6FCFD3; --green:#96E742; --purple:#9997D4; --pink:#FFC5D1;
+  --teal-bg:#EAF8F9; --green-bg:#F1FBE3; --purple-bg:#F0EFFA; --pink-bg:#FFF0F3;
+  --round:'Huninn','Noto Sans TC',sans-serif; --hand:'Iansui','Huninn','Noto Sans TC',sans-serif; --sans:'Noto Sans TC',sans-serif;
+  --gut:clamp(16px,5vw,64px);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.9;overflow-x:hidden}
+a{color:var(--ink)} a:hover{color:#5E56B8}
+h1,h2,h3{font-family:var(--round);font-weight:700;margin:0;letter-spacing:.02em}
+p{margin:0}
+.wrap{max-width:1080px;margin:0 auto}
+section{padding:clamp(56px,8vw,104px) var(--gut)}
+.hl{padding:0 6px;background:linear-gradient(transparent 58%,var(--c,var(--green)) 58%,var(--c,var(--green)) 92%,transparent 92%)}
+.pill{display:inline-block;padding:2px 18px;border-radius:999px;font-family:var(--round);font-size:17px;background:var(--c,var(--teal));transform:rotate(-2deg)}
+.lead{font-size:19px}
+.big{font-family:var(--round);font-weight:700;font-size:clamp(20px,2.4vw,26px);line-height:1.6}
+.muted{color:var(--muted)}
+.small{font-size:14.5px;line-height:1.75}
+.cite{font-size:13px;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 30px;border-radius:999px;border:2px solid var(--ink);
+  background:var(--ink);color:#fff;font-family:var(--round);font-size:19px;text-decoration:none;cursor:pointer}
+.btn:hover{color:#fff;background:#3a3a3a}
+.btn.ghost{background:transparent;color:var(--ink)} .btn.ghost:hover{background:var(--ink);color:#fff}
+.btn:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #5E56B8;outline-offset:3px}
+
+/* nav */
+nav{padding:14px var(--gut)}
+nav .wrap{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+nav a{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:999px;text-decoration:none;font-family:var(--round);font-size:16px}
+nav a:hover{background:#f4f4f4;color:var(--ink)}
+nav a i{width:10px;height:10px;border-radius:50%;background:var(--c)}
+
+/* hero */
+header{position:relative;padding:clamp(20px,4vw,48px) var(--gut) clamp(56px,8vw,96px);text-align:center}
+header .deco{position:absolute;width:clamp(60px,11vw,150px);height:auto;fill:none;stroke-linecap:round}
+header .inner{position:relative;display:flex;flex-direction:column;align-items:center;gap:clamp(16px,2.6vw,28px)}
+header img{width:min(320px,62%);height:auto}
+header h1{font-size:clamp(32px,5.6vw,66px);line-height:1.3}
+header h1 small{display:block;font-size:.42em;letter-spacing:.06em;margin-bottom:.3em}
+header .sub{font-size:clamp(17px,2vw,21px);max-width:640px;text-wrap:balance}
+header h1{text-wrap:balance}
+.facts{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.facts span{border:2px solid var(--ink);border-radius:999px;padding:2px 16px;font-family:var(--round);font-size:16px}
+.ctas{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
+
+/* speech bubble from the logo */
+.bubble{position:relative;display:inline-block;background:var(--ink);color:#fff;padding:22px 32px;border-radius:44px 52px 46px 54px / 52px 44px 54px 46px;
+  font-family:var(--round);font-weight:700;font-size:clamp(24px,3.4vw,40px);line-height:1.45;transform:rotate(-2deg)}
+.bubble svg{position:absolute;left:56px;bottom:-24px}
+.bubble.sm{font-size:clamp(19px,2.4vw,26px);padding:16px 26px}
+
+.split{display:flex;flex-wrap:wrap;gap:clamp(28px,5vw,64px);align-items:center}
+.split > *{flex:1 1 360px;min-width:0}
+.stack{display:flex;flex-direction:column;gap:16px}
+.head{display:flex;flex-direction:column;gap:12px;align-items:flex-start;margin-bottom:clamp(28px,4vw,44px)}
+.head h2{font-size:clamp(32px,5vw,58px);line-height:1.3}
+
+/* blob cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
+.blob{display:flex;flex-direction:column;gap:6px;padding:26px;background:var(--c);border-radius:36px 28px 40px 30px / 30px 40px 28px 36px}
+.blob:nth-child(odd){transform:rotate(-1deg)} .blob:nth-child(even){transform:rotate(1deg);border-radius:30px 40px 28px 36px / 36px 28px 40px 30px}
+.blob b{font-family:var(--round);font-size:32px;line-height:1.3}
+.blob .en{font-family:var(--round);font-size:15px;opacity:.8}
+.blob p{font-size:15.5px;line-height:1.75}
+.white{background:#fff;border-radius:28px;padding:26px 24px;display:flex;flex-direction:column;gap:10px}
+.white h3{font-size:22px;line-height:1.45}
+.dot{width:16px;height:16px;border-radius:50%;background:var(--c);flex:none}
+
+.formula{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px 14px;font-family:var(--round);font-weight:700;font-size:clamp(20px,3vw,32px);
+  background:#fff;border:2px dashed var(--ink);border-radius:28px;padding:22px 18px;text-align:center}
+.formula span{padding:2px 16px;border-radius:999px;background:var(--c)}
+
+/* roadmap */
+.road{display:flex;flex-wrap:wrap;gap:12px 8px;align-items:center}
+.road .st{position:relative;background:#fff;border:2px solid var(--ink);border-radius:999px;padding:6px 16px;font-family:var(--round);font-size:16px;line-height:1.5}
+.road .st.on{background:var(--ink);color:#fff}
+.road .st.on::after{content:"ORF";position:absolute;top:-16px;right:-8px;background:var(--pink);color:var(--ink);border:2px solid var(--ink);border-radius:999px;font-size:12px;padding:0 8px;line-height:1.6;transform:rotate(6deg)}
+.road .ar{font-family:var(--round);font-size:20px}
+
+.next{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}
+.next .white{border:2px solid var(--ink)}
+.tag{align-self:flex-start;font-family:var(--round);font-size:16px;padding:2px 14px;border-radius:999px;background:var(--c)}
+
+/* steps */
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:18px;counter-reset:s}
+.steps li{display:flex;gap:18px;align-items:flex-start}
+.steps li::before{counter-increment:s;content:counter(s);flex:none;width:52px;height:52px;border-radius:50%;background:var(--c);display:flex;align-items:center;justify-content:center;
+  font-family:var(--round);font-weight:700;font-size:24px;margin-top:2px}
+.steps li:nth-child(1){--c:var(--teal)} .steps li:nth-child(2){--c:var(--green)} .steps li:nth-child(3){--c:var(--purple)} .steps li:nth-child(4){--c:var(--pink)} .steps li:nth-child(5){--c:var(--teal)}
+.steps h3{font-size:21px;line-height:1.5}
+.check{background:var(--ink);color:#fff;border-radius:32px 40px 30px 38px / 38px 30px 40px 32px;padding:28px clamp(22px,3vw,34px)}
+.check h3{font-size:24px;margin-bottom:8px}
+.check ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px}
+
+/* results */
+.res{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:20px}
+.res .white h3 small{display:block;font-family:var(--sans);font-weight:500;font-size:14px;color:var(--muted);letter-spacing:0}
+.bands{display:flex;flex-direction:column;gap:8px;margin:4px 0 0;padding:0;list-style:none}
+.bands li{display:flex;gap:12px;align-items:baseline;font-size:15.5px;line-height:1.7}
+.bands li b{flex:none;min-width:74px;font-family:var(--round);font-size:16px;padding:0 10px;border-radius:999px;background:var(--c);text-align:center}
+.norms{width:100%;border-collapse:collapse;font-size:15px;margin-top:4px}
+.norms th,.norms td{border-bottom:1px solid #e6e6e6;padding:6px 4px;text-align:center}
+.norms th{font-family:var(--round);font-weight:400;color:var(--muted)}
+.norms td{font-family:var(--round);font-size:17px}
+.chain{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-family:var(--round);font-size:18px}
+.chain span{padding:4px 16px;border-radius:999px;background:var(--c)}
+.wide{grid-column:1/-1}
+.note{border-left:5px solid var(--c,var(--pink));background:#fff;border-radius:0 20px 20px 0;padding:16px 20px}
+
+/* form */
+form{display:flex;flex-direction:column;gap:22px}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:18px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label,.legend{font-family:var(--round);font-size:18px}
+.field .hint{font-size:14px;color:var(--muted);line-height:1.6}
+input[type=text],input[type=email],select{font:inherit;font-size:17px;min-height:50px;padding:8px 16px;border:2px solid var(--ink);border-radius:16px;background:#fff;color:var(--ink);width:100%}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+.levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:14px;margin-top:12px}
+.lv{position:relative;display:flex;flex-direction:column;gap:6px;padding:18px 20px 18px 56px;border:2px solid var(--ink);border-radius:24px;background:#fff;cursor:pointer}
+.lv input{position:absolute;left:20px;top:22px;width:22px;height:22px;accent-color:var(--ink);margin:0}
+.lv .t{font-family:var(--round);font-size:18px;line-height:1.4}
+.lv .t small{font-family:var(--sans);font-size:13.5px;color:var(--muted);margin-left:6px}
+.lv .en{font-size:17px;line-height:1.65;font-weight:500;letter-spacing:.01em}
+.lv .d{font-size:14px;color:var(--muted);line-height:1.6}
+.lv:has(input:checked){background:var(--green-bg);box-shadow:0 0 0 2px var(--ink) inset}
+.consent{display:flex;gap:12px;align-items:flex-start;font-size:15.5px;line-height:1.75}
+.consent input{width:22px;height:22px;flex:none;margin-top:4px;accent-color:var(--ink)}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.msg{border-radius:20px;padding:16px 20px;font-size:16px;line-height:1.8}
+.msg.ok{background:var(--green-bg);border:2px solid var(--green)}
+.msg.err{background:var(--pink-bg);border:2px solid #e48aa0}
+.msg[hidden]{display:none}
+
+footer{padding:48px var(--gut) 56px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+footer img{width:160px;height:auto}
+
+@media (max-width:560px){
+  body{font-size:16px}
+  .bubble svg{left:40px}
+  .lv{padding-left:50px}
+  .lv input{left:16px}
+  .road .ar{display:none}
+  header .deco{display:none}
+  header .sub br{display:none}
+  header h1 .orf{display:block}
+}
+</style>
+</head>
+<body>
+
+<nav aria-label="頁面導覽"><div class="wrap">
+  <a href="#why" style="--c:var(--teal)"><i></i>為什麼要測</a>
+  <a href="#path" style="--c:var(--green)"><i></i>和學習的關係</a>
+  <a href="#how" style="--c:var(--purple)"><i></i>怎麼測</a>
+  <a href="#results" style="--c:var(--pink)"><i></i>怎麼看結果</a>
+  <a href="#apply" style="--c:var(--ink)"><i></i>申請測驗</a>
+</div></nav>
+
+<header>
+  <svg class="deco" aria-hidden="true" viewBox="0 0 200 200" style="left:3%;top:6%"><path d="M20 150 L150 30" stroke="#6FCFD3" stroke-width="10"/><path d="M8 110 L180 96" stroke="#6FCFD3" stroke-width="2"/><circle cx="160" cy="150" r="12" fill="#9997D4"/></svg>
+  <svg class="deco" aria-hidden="true" viewBox="0 0 200 200" style="right:3%;top:34%"><path d="M40 40 L160 150" stroke="#FFC5D1" stroke-width="10"/><path d="M20 120 L190 60" stroke="#FFC5D1" stroke-width="2"/><circle cx="50" cy="160" r="12" fill="#96E742"/></svg>
+  <div class="inner wrap">
+    <img src="assets/logo.png" alt="中文家庭雙語小孩">
+    <h1><small>Oral Reading Fluency</small><span class="orf">ORF </span><span class="hl">口語閱讀流暢性</span>測驗</h1>
+    <p class="sub">讓孩子朗讀一篇短文，再用英文說說讀到了什麼。<br>一次看見孩子讀得準不準、順不順、有沒有讀懂。</p>
+    <div class="facts" aria-label="測驗概要"><span>約 10 分鐘</span><span>線上完成</span><span>電腦或平板＋麥克風</span></div>
+    <div class="ctas"><a class="btn" href="#apply">申請測驗</a><a class="btn ghost" href="#why">先了解測驗</a></div>
+  </div>
+</header>
+
+<!-- 問題 -->
+<section style="background:var(--pink-bg)">
+  <div class="wrap split">
+    <div class="stack" style="align-items:flex-start;gap:36px">
+      <p class="lead">學完自然拼讀，很多家長心裡會有一個問題：</p>
+      <div class="bubble">「孩子會讀英文了，<br>可是讀得『好』嗎？」<svg aria-hidden="true" width="34" height="30" viewBox="0 0 34 30"><path d="M2 0 C8 10 10 20 8 30 C18 22 26 12 32 0 Z" fill="#1F1F1F"/></svg></div>
+    </div>
+    <div class="stack">
+      <p>「拼得出來」和「讀得懂」之間，還隔著一段家長不容易看見的距離。</p>
+      <p>有的孩子每個字都念對，卻讀得很慢、很吃力，讀到句尾已經忘了句首。有的孩子念得又快又順，問他剛剛讀了什麼，卻說不出來。</p>
+      <p class="big">ORF 測驗，就是用來看見這段距離的工具。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 什麼是 ORF -->
+<section id="why">
+  <div class="wrap">
+    <div class="head">
+      <span class="pill" style="--c:var(--teal)">先認識一下</span>
+      <h2>什麼是 ORF？</h2>
+      <p class="lead" style="max-width:820px">ORF 是 Oral Reading Fluency（口語閱讀流暢性）的縮寫。做法很簡單：請孩子朗讀一篇沒看過的短文，看他一分鐘能正確讀出幾個字，同時聽他讀得順不順、有沒有語氣。美國小學普遍用它來篩檢和追蹤孩子的閱讀能力，因為只要幾分鐘，就能相當可靠地反映整體的閱讀狀況。</p>
+    </div>
+    <div class="cards">
+      <div class="blob" style="--c:var(--teal)"><b>讀得準</b><span class="en">Accuracy 正確率</span><p>讀到的字裡，讀對了多少。</p></div>
+      <div class="blob" style="--c:var(--green)"><b>讀得快</b><span class="en">WCPM 每分鐘正確字數</span><p>一分鐘內正確讀出幾個字。</p></div>
+      <div class="blob" style="--c:var(--purple)"><b>讀得有表情</b><span class="en">Prosody 朗讀韻律</span><p>斷句、停頓和語調是不是跟著句子的意思走。</p></div>
+      <div class="blob" style="--c:var(--pink)"><b>讀得懂</b><span class="en">Retell 重述理解</span><p>讀完後用英文說出讀到的內容。</p></div>
+    </div>
+    <p style="margin-top:28px;max-width:820px">一般的 ORF 只看前三項。我們另外加上「重述」：讀完之後請孩子用英文說說讀到了什麼，看看在流暢之外，意思有沒有真的讀進去。</p>
+  </div>
+</section>
+
+<!-- 意義與價值 -->
+<section style="background:var(--teal-bg)">
+  <div class="wrap">
+    <div class="head">
+      <span class="pill" style="--c:var(--teal)">測驗的意義與價值</span>
+      <h2>為什麼流暢度這麼重要？</h2>
+    </div>
+    <div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(290px,1fr))">
+      <div class="white"><span class="dot" style="--c:var(--teal)"></span><h3>流暢，是解碼和理解之間的橋</h3>
+        <p>人的注意力是有限的。孩子如果要花力氣拼每一個字，就沒有餘力去想句子的意思；字認得夠自動，注意力才騰得出來給理解。所以流暢度常被形容為連接「認字」和「理解」的橋。</p>
+        <p class="cite">LaBerge &amp; Samuels (1974)；Pikulski &amp; Chard (2005)</p></div>
+      <div class="white"><span class="dot" style="--c:var(--green)"></span><h3>幾分鐘，就能看出整體閱讀能力</h3>
+        <p>研究一再發現，小學階段的朗讀流暢度和閱讀理解高度相關，是反映整體閱讀能力的好指標。不必寫一份長長的考卷，就能知道孩子大概在哪裡、卡在哪裡。</p>
+        <p class="cite">Fuchs, Fuchs, Hosp &amp; Jenkins (2001)</p></div>
+      <div class="white"><span class="dot" style="--c:var(--purple)"></span><h3>對中文家庭的孩子特別有用</h3>
+        <p>中文家庭的孩子，英文常靠影音和繪本累積了不少聽力，卻不一定和文字接上；也有孩子拼讀很熟練，語言理解卻還跟不上。考試分數分不出這兩種情況，朗讀加上重述可以。</p>
+        <p class="cite">Gough &amp; Tunmer (1986)，閱讀的簡單觀點（Simple View of Reading）</p></div>
+    </div>
+    <div style="margin-top:32px" class="stack">
+      <div class="formula" aria-label="閱讀理解等於解碼乘以語言理解"><span style="--c:var(--purple)">閱讀理解</span>＝<span style="--c:var(--teal)">解碼</span>×<span style="--c:var(--green)">語言理解</span></div>
+      <p class="small muted" style="text-align:center">兩者相乘：任何一項接近零，閱讀理解就起不來。ORF 看的是解碼有沒有自動化，重述看的是意思有沒有進去。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 和後續學習的關係 -->
+<section id="path" style="background:var(--green-bg)">
+  <div class="wrap">
+    <div class="head">
+      <span class="pill" style="--c:var(--green)">和後續英語學習的關係</span>
+      <h2>ORF 在學習路上的位置</h2>
+      <p class="lead" style="max-width:820px">我們規劃 0–15 歲孩子的英語學習，是一站接一站的路線。ORF 量的是「自動化認字」這一站的成果，也是進入「大量閱讀」的門票。</p>
+    </div>
+    <div class="road" aria-label="學習路線">
+      <span class="st">口語與聲音表徵</span><span class="ar" aria-hidden="true">→</span>
+      <span class="st">音素覺識</span><span class="ar" aria-hidden="true">→</span>
+      <span class="st">自然拼讀與字形對應</span><span class="ar" aria-hidden="true">→</span>
+      <span class="st on">自動化認字</span><span class="ar" aria-hidden="true">→</span>
+      <span class="st on">大量閱讀</span><span class="ar" aria-hidden="true">→</span>
+      <span class="st">構詞、詞彙與知識</span><span class="ar" aria-hidden="true">→</span>
+      <span class="st">功能與文體意識</span><span class="ar" aria-hidden="true">→</span>
+      <span class="st">學術讀寫</span>
+    </div>
+    <div class="split" style="margin-top:36px;align-items:stretch">
+      <div class="white"><h3>什麼時候測？</h3>
+        <p>完成自然拼讀第一階段之後，用 ORF 確認能不能開始讀故事書。開始大量閱讀之後，再定期用 ORF 追蹤，決定什麼時候換更難的書。</p>
+        <p class="small muted">還沒開始學自然拼讀的孩子，請先做<a href="https://pre-phonics-test.netlify.app/">「閱讀與自然拼讀—前測」</a>。</p></div>
+      <div class="white"><h3>結果會直接指向下一步</h3>
+        <p>ORF 不只告訴您「幾分」，還會告訴您問題出在哪一段：是認字還不夠準、讀得不夠順，還是讀了沒讀懂。不同的缺口，要補的東西完全不同。</p></div>
+    </div>
+    <div class="next" style="margin-top:20px">
+      <div class="white"><span class="tag" style="--c:var(--pink)">解碼待加強</span><p>回到自然拼讀與字形對應，用可解碼的文本練習；平常讀的書先降一級。</p></div>
+      <div class="white"><span class="tag" style="--c:var(--purple)">流暢度待加強</span><p>字大多認得，但還不夠自動。用重複朗讀、聽示範後跟讀、依詞組斷句朗讀來練習。</p></div>
+      <div class="white"><span class="tag" style="--c:var(--teal)">理解待加強</span><p>讀得順，但意思沒有進去。讀前預測、讀到一半停下來問問題，讀完用自己的話說出重點。</p></div>
+      <div class="white"><span class="tag" style="--c:var(--green)">達標</span><p>可以在這個程度大量閱讀，再逐步提高書的難度。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 測驗方式 -->
+<section id="how">
+  <div class="wrap">
+    <div class="head">
+      <span class="pill" style="--c:var(--purple)">測驗的方式</span>
+      <h2>測驗怎麼進行？</h2>
+    </div>
+    <div class="split" style="align-items:flex-start">
+      <ol class="steps">
+        <li><div><h3>線上申請</h3><p>填寫本頁最下方的申請表，並預估孩子目前的閱讀程度。</p></div></li>
+        <li><div><h3>收信、點連結</h3><p>系統會把孩子專屬的代碼和測驗連結寄到您的信箱。點連結就能直接開始。</p></div></li>
+        <li><div><h3>朗讀一篇短文</h3><p>畫面會出現一篇符合所選程度的短文，約 50–150 字。按「開始朗讀」後，孩子從第一個字讀起，讀完按「結束」。計分只看從第一個字的聲音開始的前 60 秒。</p></div></li>
+        <li><div><h3>用英文重述</h3><p>讀完後，畫面會用中文說明接下來要做什麼。文章再停留 30 秒讓孩子看一眼，然後收起來，孩子用英文說說剛剛讀到了什麼，最長 1 分鐘。只看意思，文法不扣分。</p></div></li>
+        <li><div><h3>看結果</h3><p>送出後很快就會看到分析結果。老師檢閱 AI 的評分後，會把完整報告寄到您的信箱。</p></div></li>
+      </ol>
+      <div class="check">
+        <h3>開始之前</h3>
+        <ul>
+          <li>用電腦或平板，建議使用 Chrome。第一次會詢問能不能使用麥克風，請按「允許」。</li>
+          <li>找一個安靜的房間，關掉電視和音樂。</li>
+          <li>讓孩子自己讀、自己說。大人提示或幫忙念，結果就不準了。</li>
+          <li>每篇文章只能測一次，請準備好再按「開始朗讀」。</li>
+          <li>全程大約 10 分鐘。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 結果 -->
+<section id="results" style="background:var(--purple-bg)">
+  <div class="wrap">
+    <div class="head">
+      <span class="pill" style="--c:var(--purple)">測驗結果的面向與解釋</span>
+      <h2>結果怎麼看？</h2>
+      <p class="lead" style="max-width:820px">結果會呈現四個面向的分數和一個「總評」，還有原文與朗讀的逐字比對：哪個字漏讀、讀錯或停頓太久，一眼就看得到；點任何一個字，錄音就從那裡開始播放。</p>
+    </div>
+    <div class="res">
+      <div class="white"><h3>正確率<small>Accuracy</small></h3>
+        <p class="small">讀對的字 ÷ 讀到的字。漏讀、讀錯、停頓超過 3 秒算錯；多讀的字、自己改正、重複讀不算錯。</p>
+        <ul class="bands">
+          <li><b style="--c:var(--green)">≥ 97%</b><span>獨立閱讀程度：這個程度的書可以自己讀。</span></li>
+          <li><b style="--c:var(--teal)">90–96%</b><span>教學程度：有大人陪著讀，正適合學習。</span></li>
+          <li><b style="--c:var(--pink)">&lt; 90%</b><span>挫折程度：這篇文章對孩子偏難。</span></li>
+        </ul></div>
+      <div class="white"><h3>每分鐘正確字數<small>WCPM, Words Correct Per Minute</small></h3>
+        <p class="small">從第一個字的聲音開始的 60 秒內，正確讀出的字數。和美國同程度學生秋季的第 75 百分位比較（Hasbrouck &amp; Tindal, 2017）。</p>
+        <table class="norms" aria-label="各程度比較基準">
+          <tr><th scope="row">程度</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th></tr>
+          <tr><th scope="row">WCPM</th><td>59</td><td>84</td><td>104</td><td>125</td><td>153</td><td>159</td></tr>
+        </table>
+        <p class="small muted">第 1 級沒有秋季常模，改用冬季。這些常模來自以英語為母語的美國學生，對中文家庭的孩子是一個努力的方向，不是貼標籤。</p></div>
+      <div class="white"><h3>朗讀韻律（1–4）<small>Prosody</small></h3>
+        <p class="small">參照美國 NAEP 的朗讀流暢度等級，3 以上屬於流暢範圍。</p>
+        <ul class="bands">
+          <li><b style="--c:var(--green)">4</b><span>以有意義的詞組來讀，語氣自然。</span></li>
+          <li><b style="--c:var(--teal)">3</b><span>大多三、四個字一組，斷句大致恰當。</span></li>
+          <li><b style="--c:var(--purple)">2</b><span>大多兩個字一組，斷句常和句意無關。</span></li>
+          <li><b style="--c:var(--pink)">1</b><span>大多一個字一個字地讀。</span></li>
+        </ul>
+        <p class="small muted">細項另外看四件事：語調（陳述句句尾下降、問句上揚）、詞組與停頓、順暢度（重複、自我修正、猶豫），以及速度。</p></div>
+      <div class="white"><h3>重述理解（1–4）<small>Retell</small></h3>
+        <p class="small">老師事先把每篇文章拆成幾個「意義單位」，一個意義單位大約是一個重要的訊息。AI 比對孩子說出了哪些，只看意思，不看文法。</p>
+        <ul class="bands">
+          <li><b style="--c:var(--green)">4</b><span>說出 70% 以上的意義單位，而且沒有誤解。</span></li>
+          <li><b style="--c:var(--teal)">3</b><span>說出 40% 以上。</span></li>
+          <li><b style="--c:var(--purple)">2</b><span>說出 25% 以上。</span></li>
+          <li><b style="--c:var(--pink)">1</b><span>不到 25%。</span></li>
+        </ul></div>
+      <div class="white wide"><h3>總評<small>依序檢查，最先找到的缺口，就是最該先補的</small></h3>
+        <div class="chain" aria-hidden="true"><span style="--c:var(--pink)">解碼</span>→<span style="--c:var(--purple)">流暢度</span>→<span style="--c:var(--teal)">理解</span>→<span style="--c:var(--green)">達標</span></div>
+        <ul class="bands" style="margin-top:8px">
+          <li><b style="--c:var(--pink)">解碼待加強</b><span>正確率低於 90%。</span></li>
+          <li><b style="--c:var(--purple)">流暢度待加強</b><span>正確率達標，但 WCPM 不到比較基準的 75%，或朗讀韻律在 2 以下。</span></li>
+          <li><b style="--c:var(--teal)">理解待加強</b><span>讀得準也讀得順，但重述理解在 2 以下。</span></li>
+          <li><b style="--c:var(--green)">達標</b><span>以上都通過。</span></li>
+        </ul></div>
+    </div>
+    <div class="note" style="margin-top:24px;--c:var(--purple)">
+      <p><b style="font-family:var(--round)">關於 AI 評分</b>　語音辨識偶爾會把口音較重或聲音太小的字聽錯，所以老師會再檢閱錄音和 AI 的評分。一次測驗呈現的是「這一天、這一篇文章」的表現，請把它當作找方向的參考，而不是孩子能力的全部。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 申請 -->
+<section id="apply">
+  <div class="wrap" style="max-width:920px">
+    <div class="head">
+      <span class="pill" style="--c:var(--pink)">申請測驗</span>
+      <h2>幫孩子申請測驗</h2>
+      <p class="lead">送出後，系統會把孩子專屬的代碼和測驗連結寄到您的信箱。</p>
+    </div>
+    <form id="applyForm" novalidate>
+      <div class="row2">
+        <div class="field"><label for="fParent">家長稱呼</label><input id="fParent" type="text" maxlength="20" placeholder="例如：王媽媽" autocomplete="name" required></div>
+        <div class="field"><label for="fEmail">電子信箱</label><input id="fEmail" type="email" maxlength="100" placeholder="測驗連結會寄到這裡" autocomplete="email" required></div>
+        <div class="field"><label for="fChild">孩子的名字</label><input id="fChild" type="text" maxlength="20" placeholder="報告上會顯示這個名字" required></div>
+        <div class="field"><label for="fSchool">孩子目前就讀</label>
+          <select id="fSchool" required><option value="">請選擇</option>
+            <option>幼兒園中班</option><option>幼兒園大班</option><option>小一</option><option>小二</option><option>小三</option><option>小四</option><option>小五</option><option>小六</option><option>國一</option><option>國二</option><option>國三</option><option>其他</option>
+          </select></div>
+      </div>
+
+      <fieldset>
+        <legend class="legend">孩子目前的英文閱讀程度（請家長預估）</legend>
+        <p class="small muted" style="margin-top:4px">請看下面六段英文，選出孩子能自己大聲讀出來、大部分的字都認得、不太需要停下來拼的<b>最難</b>一段。測驗會用這個程度的文章。估得不準也沒關係：如果文章明顯太難或太簡單，結果會提醒，老師可以安排換一個程度再測。</p>
+        <div class="levels">
+          <label class="lv"><input type="radio" name="level" value="1" required><span class="t">第 1 級<small>約美國小一</small></span>
+            <span class="en">I see a big dog. The dog can run. Can you see it?</span>
+            <span class="d">能讀很短的句子和常見字，例如一頁只有一兩句話的書（Elephant &amp; Piggie 這類）。</span></label>
+          <label class="lv"><input type="radio" name="level" value="2"><span class="t">第 2 級<small>約美國小二</small></span>
+            <span class="en">Sam has a red kite. He runs fast, and the kite goes up into the sky.</span>
+            <span class="d">能讀幾句話組成的小故事，例如 Frog and Toad 這類。</span></label>
+          <label class="lv"><input type="radio" name="level" value="3"><span class="t">第 3 級<small>約美國小三</small></span>
+            <span class="en">After school, Mia found a tiny bird under a tree. She wanted to help it, but she did not know what to do.</span>
+            <span class="d">能讀簡單的章節書，例如 Magic Tree House 這類。</span></label>
+          <label class="lv"><input type="radio" name="level" value="4"><span class="t">第 4 級<small>約美國小四</small></span>
+            <span class="en">The old lighthouse had been empty for years, yet every night a faint light still appeared at the top of the tower.</span>
+            <span class="d">能讀一般的兒童小說，例如 Charlotte's Web 這類。</span></label>
+          <label class="lv"><input type="radio" name="level" value="5"><span class="t">第 5 級<small>約美國小五</small></span>
+            <span class="en">Although the scientists had planned the trip carefully, a sudden storm forced them to change their route and wait for clearer skies.</span>
+            <span class="d">能讀篇幅較長、句子較複雜的小說。</span></label>
+          <label class="lv"><input type="radio" name="level" value="6"><span class="t">第 6 級<small>約美國小六</small></span>
+            <span class="en">Long before maps and compasses, sailors studied the positions of the stars, and their careful records helped later explorers cross unfamiliar oceans.</span>
+            <span class="d">能讀內容較多的小說和知識性文章，例如 Harry Potter 第一集這類。</span></label>
+        </div>
+      </fieldset>
+
+      <label class="consent"><input id="fConsent" type="checkbox" required>
+        <span>我了解測驗會錄下孩子朗讀和重述的聲音。錄音會送到 OpenAI 的語音辨識服務轉成文字，並保存在老師的雲端硬碟，只用於評分、老師檢閱和製作報告。</span></label>
+      <div class="hp" aria-hidden="true"><label for="fWebsite">網站</label><input id="fWebsite" type="text" tabindex="-1" autocomplete="off"></div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center">
+        <button class="btn" id="applyBtn" type="submit">送出申請</button>
+        <span class="small muted">每位孩子每篇文章只能測一次。</span>
+      </div>
+      <p class="msg" id="applyMsg" role="status" hidden></p>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <img src="assets/logo.png" alt="中文家庭雙語小孩">
+  <p class="small muted">已經收到代碼了嗎？<a href="./">前往測驗頁</a></p>
+</footer>
+
+<script>
+(function(){
+  const API = (window.ORF_CONFIG && window.ORF_CONFIG.SHEET_API) || "";
+  const API_OK = /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(API);
+  const $ = s => document.querySelector(s);
+  const form = $("#applyForm"), msg = $("#applyMsg"), btn = $("#applyBtn");
+  const show = (text, ok) => { msg.textContent = text; msg.className = "msg " + (ok ? "ok" : "err"); msg.hidden = false; };
+  const ERR = {
+    closed: "目前暫停受理申請，請稍後再來。",
+    not_configured: "申請功能還沒有設定完成，請稍後再試。",
+    invalid_email: "電子信箱的格式不對，請再檢查一次。",
+    missing_fields: "請把家長稱呼、孩子的名字和就讀年級都填好。",
+    bad_level: "請選擇孩子目前的閱讀程度。",
+    need_consent: "請先勾選同意錄音的說明。",
+    too_many: "這個信箱一小時內已經申請了好幾次。請先到信箱找找看（也看看垃圾郵件匣），或稍後再試。",
+    mail_quota: "申請資料已經收到，但今天的寄信額度用完了，我們會盡快把連結補寄給您。",
+    mail_failed: "申請資料已經收到，但信沒有寄出去，我們會盡快把連結補寄給您。"
+  };
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const lv = form.querySelector('input[name="level"]:checked');
+    const d = { parent: $("#fParent").value.trim(), email: $("#fEmail").value.trim(), child: $("#fChild").value.trim(),
+                school: $("#fSchool").value, level: lv ? +lv.value : 0, consent: $("#fConsent").checked, website: $("#fWebsite").value };
+    if (!d.parent || !d.child || !d.school) { show(ERR.missing_fields); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email)) { show(ERR.invalid_email); $("#fEmail").focus(); return; }
+    if (!d.level) { show(ERR.bad_level); return; }
+    if (!d.consent) { show(ERR.need_consent); return; }
+    if (!API_OK) { show(ERR.not_configured); return; }
+    btn.disabled = true; btn.textContent = "送出中…"; msg.hidden = true;
+    try {
+      const r = await fetch(API + "?action=apply", { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(d) });
+      const j = await r.json();
+      if (j.ok) {
+        show(j.resent
+          ? `${d.child} 之前已經申請過了。我們把原本的代碼和測驗連結重新寄到 ${d.email}，請到信箱查看（找不到的話，看看垃圾郵件匣）。`
+          : `申請完成！孩子的代碼和測驗連結已經寄到 ${d.email}，請到信箱查看（找不到的話，看看垃圾郵件匣）。`, true);
+        form.querySelectorAll("input,select").forEach(x => { if (x.id !== "fEmail" && x.id !== "fParent") { if (x.type === "radio" || x.type === "checkbox") x.checked = false; else x.value = ""; } });
+      } else {
+        show(ERR[j.error] || `申請沒有成功（${j.error || "未知錯誤"}），請稍後再試。`);
+      }
+    } catch (_) {
+      show("連線失敗，請檢查網路後再送一次。");
+    } finally {
+      btn.disabled = false; btn.textContent = "送出申請";
+    }
+  });
+})();
+</script>
+</body>
+</html>

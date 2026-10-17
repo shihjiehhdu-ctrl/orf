@@ -291,7 +291,7 @@ body.stmode .ruleCtl{display:none}
     <div class="tokenbox">
       <div>
         <h2>輸入學生代碼</h2>
-        <p class="note" style="margin-top:4px">輸入老師給你的代碼，系統會直接顯示你年級的短文，成績會自動記錄。</p>
+        <p class="note" style="margin-top:4px">輸入老師給你的代碼，系統會直接顯示你年級的短文，成績會自動記錄。還沒有代碼？<a href="intro.html#apply">申請測驗</a></p>
       </div>
       <form id="tokenForm" class="tokenform" autocomplete="off">
         <label for="tokenInput" class="label" style="position:absolute;left:-9999px">學生代碼</label>
@@ -592,6 +592,7 @@ const DEFAULT_PASSAGES = [
    records saved before the change carry no pct in their rules and keep the 50th. */
 let PASSAGES = DEFAULT_PASSAGES;
 const NORM_PCT = 75;
+const STATEMENT_FALL_ST = 0.5;   // 陳述句句尾下降這麼多半音就算符合預期（判讀「下降」的門檻是 1.0，評分時放寬）
 const NORM_TABLE = {
   75:{1:{fall:null,winter:59,spring:91},2:{fall:84,winter:109,spring:124},3:{fall:104,winter:137,spring:139},4:{fall:125,winter:143,spring:160},5:{fall:153,winter:160,spring:169},6:{fall:159,winter:166,spring:173}},
   50:{1:{fall:null,winter:29,spring:60},2:{fall:50,winter:84,spring:100},3:{fall:83,winter:97,spring:112},4:{fall:94,winter:120,spring:133},5:{fall:121,winter:133,spring:146},6:{fall:132,winter:145,spring:146}}};
@@ -760,7 +761,11 @@ function analyze(words, asr, rules, grade){
   const contours={};
   for(let k=0;k<A;k++){ if(words[k].end!=="sentence" || R[k].h==null) continue;
     const e=hyp[R[k].h].end, p=asr.pitch.find(p=>Math.abs(p.t-e)<0.06); if(!p) continue;
-    const exp=words[k].exp; cTot++; const ok=p.contour===exp; if(ok) cOk++;
+    const exp=words[k].exp; cTot++;
+    /* statements: a slight final fall (judged "flat") also counts, from rules.fallSt semitones down.
+       Records saved before this rule carry no fallSt and are judged as they were. */
+    const ok = p.contour===exp || (exp==="fall" && rules.fallSt!=null && p.contour==="flat" && p.f0_change_semitones <= -rules.fallSt);
+    if(ok) cOk++;
     contours[k]={...p,exp,ok}; }
   const per100=x=>A?x/A*100:0;
   const boundaryRate=sEnds?sPaused/sEnds:1, contourRate=cTot?cOk/cTot:1, midPer100=per100(mid), smoothPer100=per100(rep+sc+hes);
@@ -780,12 +785,12 @@ function analyze(words, asr, rules, grade){
 const $=s=>document.querySelector(s);
 const S={pid:null, seed:20260926, profile:"typical", asr:null, audioURL:null, audioBlob:null, recMode:null};
 /* students on the roster are always scored with one fixed rule set, so their results stay comparable */
-const FIXED_RULES={timing:"oneMin", t0:"firstWord", hes3:true, insCount:false, season:"fall", pct:NORM_PCT};
+const FIXED_RULES={timing:"oneMin", t0:"firstWord", hes3:true, insCount:false, season:"fall", pct:NORM_PCT, fallSt:STATEMENT_FALL_ST};
 const getRules=()=> (S.override && S.override.rules) ? {...S.override.rules} : (typeof ST!=="undefined" && ST.student) ? {...FIXED_RULES} : ({
   timing:document.querySelector('input[name="timing"]:checked').value,
   t0:document.querySelector('input[name="t0"]:checked').value,
   hes3:$("#rHes").checked, insCount:$("#rIns").checked,
-  season:document.querySelector('input[name="season"]:checked').value, pct:NORM_PCT
+  season:document.querySelector('input[name="season"]:checked').value, pct:NORM_PCT, fallSt:STATEMENT_FALL_ST
 });
 const P=()=> (S.override && S.override.passage) || PASSAGES.find(p=>String(p.id)===String(S.pid));
 
@@ -1251,7 +1256,7 @@ function renderResults(){
     const tt = r.h!=null ? `${a.hyp[r.h].start}–${a.hyp[r.h].end}s` : (inRange?"未讀出":"計時範圍外");
     const tStart = r.first!=null ? a.hyp[r.first].start : null;
     h+=`<span class="${cls}" title="${esc(tt)}"${tStart!=null?` data-t="${tStart}"`:""}>${said?`<span class="said">${esc(said)}</span>`:""}${esc(w.disp)}${sup?`<sup>${sup}</sup>`:""}</span>`;
-    if(inRange && pr.contours[i]){ const c=pr.contours[i]; const ar=c.contour==="fall"?"↘":c.contour==="rise"?"↗":"→";
+    if(inRange && pr.contours[i]){ const c=pr.contours[i]; const ar=(c.contour==="fall"||(c.ok&&c.exp==="fall"))?"↘":c.contour==="rise"?"↗":"→";
       h+=`<span class="ctr ${c.ok?"ok":"bad"}" title="音高變化 ${c.f0_change_semitones} 半音；預期${c.exp==="rise"?"上揚":"下降"}">${ar}</span>`; }
     if(showPh && w.end && w.end!=="sentence") h+=`<span class="slash">${w.end==="major"?"//":"/"}</span>`;
     h+=" ";
@@ -1291,7 +1296,7 @@ function renderResults(){
   const pip=n=>`<div class="pips">${[1,2,3,4].map(k=>`<i class="${k<=n?"on":""}"></i>`).join("")}</div>`;
   const dim=(name,en,n,ev)=>`<div class="dim"><div class="head"><span>${name} <span class="muted" style="font-size:12px">${en}</span></span><span class="num">${n==null?"—":n+"/4"}</span></div>${pip(n||0)}<p class="ev">${ev}</p></div>`;
   $("#dims").innerHTML =
-    dim("語調與表情","Expression",d.dExpr, d.dExpr!=null ? `句末音高符合預期 ${pr.cOk}/${pr.cTot} 句（陳述句下降、疑問句上揚）。` : pr.cTot ? `只找到 ${pr.cTot} 句清楚的句末音高，句數太少，這一項不計分。` : "錄音中找不到足夠清楚的句末音高，這一項不計分。")+
+    dim("語調與表情","Expression",d.dExpr, d.dExpr!=null ? `句末音高符合預期 ${pr.cOk}/${pr.cTot} 句（陳述句下降${rules.fallSt!=null?`，降 ${rules.fallSt} 個半音以上即可`:''}；疑問句上揚）。` : pr.cTot ? `只找到 ${pr.cTot} 句清楚的句末音高，句數太少，這一項不計分。` : "錄音中找不到足夠清楚的句末音高，這一項不計分。")+
     dim("斷句","Phrasing",d.dPhr,`應停頓處（句末與 //）有停頓 ${pr.sPaused}/${pr.sEnds} 處；詞組中停頓 ${pr.mid} 次（每百字 ${f1(pr.midPer100)}）。`)+
     dim("順暢度","Smoothness",d.dSmo,`重複 ${a.rep}、自我修正 ${a.sc}、長停頓 ${a.hes}，每百字 ${f1(pr.smoothPer100)} 次。`)+
     dim("速度","Pace",d.dPace,`WCPM 為常模的 ${Math.round(pr.paceRatio*100)}%。`);
@@ -1370,7 +1375,10 @@ $("#tokenForm").addEventListener("submit",async e=>{
   }catch(err){ tokenMsg("暫時無法連線學生名單，請稍後再試。",true); }
   finally{ $("#tokenBtn").disabled=false; }
 });
-$("#logoutBtn").onclick=()=>{ ST.student=null; $("#studentBar").hidden=true; document.body.classList.remove("stmode","savefail"); $("#saveMsg").hidden=true; setStep(1); };
+$("#logoutBtn").onclick=()=>{ if(/[?&]t=/.test(location.search)) history.replaceState(null,"",location.pathname); ST.student=null; $("#studentBar").hidden=true; document.body.classList.remove("stmode","savefail"); $("#saveMsg").hidden=true; setStep(1); };
+/* the link in the application email carries the code: ?t=CODE logs the child in straight away */
+(function(){ const t=normTok(new URLSearchParams(location.search).get("t")||"");
+  if(t && API_OK && !location.hash){ $("#tokenInput").value=t; $("#tokenForm").requestSubmit(); } })();
 
 async function saveResult(res){
   const m=$("#saveMsg"); m.hidden=false; m.className="savemsg"; m.textContent="正在寫入成績…";
